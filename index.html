@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Group & Task Dashboard</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for light theme and focus */
+        .group-row {
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .header-cell {
+            padding: 0.75rem 0.25rem;
+            text-align: center;
+            font-weight: 600;
+            background-color: #f3f4f6;
+            border-bottom: 2px solid #e5e7eb;
+            white-space: nowrap;
+            /* Ensure text is centered horizontally and vertically */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Left-align the first few context columns */
+        .header-cell.align-left {
+            text-align: left;
+            padding-left: 1rem;
+            /* Overwrite flex column for left alignment */
+            flex-direction: row;
+            justify-content: flex-start;
+        }
+
+        .data-cell {
+            padding: 0.5rem 0.25rem;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center; /* Center content in data cells by default */
+            font-size: 0.875rem; /* text-sm */
+        }
+        
+        .data-cell.align-left {
+            justify-content: flex-start;
+            padding-left: 1rem;
+        }
+        
+        /* Refined 12 column grid layout for better aesthetic balance:
+           Group/Task Name | Enabled | Task IID | Is Mandatory (Task) | Display Order | SoD Act | SoD Man | MD Act | MD Man | EoD Act | EoD Man | Actions
+           
+           Column Widths: 2.5fr Name, 0.7fr Toggle, 0.8fr IID, 0.5fr Mandatory, 0.7fr Order, 6 * 0.5fr for time checkboxes, 0.75fr Actions
+        */
+        .dashboard-grid {
+            grid-template-columns: 2.5fr 0.7fr 0.8fr 0.5fr 0.7fr repeat(6, 0.5fr) 0.75fr;
+            display: grid;
+        }
+
+        /* Styling for the grouped time header */
+        .time-header-group {
+            /* Spans the 6 columns for time configuration (Columns 6-11) */
+            grid-column: 6 / span 6; 
+            background-color: #c7d2fe; /* Indigo 300 */
+            color: #1e3a8a; /* Indigo 900 */
+            padding: 0.5rem 0;
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.875rem; /* text-sm */
+            border-bottom: 2px solid #a5b4fc;
+        }
+        
+        input[type="text"], input[type="number"] {
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            transition: all 0.15s;
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+        }
+        
+        /* Class to visually and functionally disable all time slot config fields */
+        .time-slot-disabled {
+            opacity: 0.4;
+            pointer-events: none; /* Disables all mouse events for the cell */
+        }
+        
+        /* Style for mandatory checkboxes */
+        input[type="checkbox"].mandatory-red {
+            accent-color: #dc2626; /* red-600 */
+        }
+        /* Style for active checkboxes */
+        input[type="checkbox"].active-blue {
+            accent-color: #3b82f6; /* blue-600 */
+        }
+
+        /* Modal specific styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: none; /* Initially hidden */
+            z-index: 50; /* Above everything else */
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease-out;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            max-width: 90%;
+            max-height: 90%;
+            overflow: auto;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            transform: scale(0.9);
+            transition: transform 0.3s ease-out;
+            position: relative;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 md:p-8 font-sans antialiased">
+
+    <div class="max-w-7xl mx-auto bg-white shadow-2xl rounded-xl p-6 md:p-8">
+        <h1 class="text-3xl font-extrabold text-gray-900 mb-6 border-b pb-2">Global Workflow Configuration</h1>
+
+        <!-- Global Configuration and Preview Button Container -->
+        <!-- ALIGNMENT CORRECTION: Changed md:items-start to md:items-center -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+            <!-- Global Time Configuration (Takes up available space) -->
+            <div class="p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex flex-wrap gap-6 items-center shadow-inner flex-grow mb-4 md:mb-0">
+                <p class="font-bold text-indigo-800 flex-shrink-0">Global Time Slots:</p>
+                <div class="flex items-center space-x-2">
+                    <label for="start-of-day-time" class="text-sm text-gray-700 font-medium">Start of Day Time:</label>
+                    <input type="time" id="start-of-day-time" value="13:00" class="p-1 border rounded-md shadow-sm">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label for="mid-day-time" class="text-sm text-gray-700 font-medium">Mid Day Time:</label>
+                    <input type="time" id="mid-day-time" value="14:00" class="p-1 border rounded-md shadow-sm">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label for="end-of-day-time" class="text-sm text-gray-700 font-medium">End of Day Time:</label>
+                    <input type="time" id="end-of-day-time" value="20:00" class="p-1 border rounded-md shadow-sm">
+                </div>
+            </div>
+            
+            <!-- Preview Button (Top Right, fixed height alignment) -->
+            <button id="preview-btn" onclick="openImageModal()" class="md:ml-4 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition duration-150 ease-in-out transform hover:scale-[1.005] focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                </svg>
+                <!-- RENAMED TEXT -->
+                Preview
+            </button>
+        </div>
+
+
+        <!-- Dashboard Header -->
+        <div class="sticky top-0 bg-white z-10 shadow-md rounded-t-lg border-t border-x text-xs md:text-sm">
+            <!-- Time Slot Group Header -->
+            <div class="dashboard-grid">
+                <!-- Group/Task Name + Enabled + IID + Is Mandatory + Order = 5 columns merged -->
+                <div class="header-cell align-left rounded-tl-lg col-span-5 bg-gray-200 border-r-2 border-white">Task Metadata</div> 
+                
+                <div class="time-header-group">Day Part Configuration</div>
+                <div class="header-cell rounded-tr-lg col-span-1 bg-gray-200 border-l-2 border-white">Actions</div>
+            </div>
+            
+            <!-- Detailed Column Header - REORDERED -->
+            <div class="dashboard-grid bg-gray-100">
+                <div class="header-cell align-left font-bold text-gray-800">Group/Task Name</div>
+                <div class="header-cell font-bold text-gray-800">Enabled</div> <!-- NEW POS 2 -->
+                <div class="header-cell font-bold text-gray-800">Task IID</div> <!-- NEW POS 3 -->
+                <div class="header-cell font-bold text-gray-800">Is Mandatory</div>
+                <div class="header-cell font-bold text-gray-800">Order</div>
+                
+                <!-- Start of Day Time (Active before Mandatory) -->
+                <div class="header-cell text-center text-indigo-700 border-r border-indigo-200">SoD<div class="text-[0.6rem] font-medium mt-0.5">Active</div></div>
+                <div class="header-cell text-center text-indigo-700">SoD<div class="text-[0.6rem] font-medium mt-0.5">Mandatory</div></div>
+
+                <!-- Mid Day Time (Active before Mandatory) -->
+                <div class="header-cell text-center text-indigo-700 border-l border-r border-indigo-200 bg-indigo-100">MD<div class="text-[0.6rem] font-medium mt-0.5">Active</div></div>
+                <div class="header-cell text-center text-indigo-700 bg-indigo-100">MD<div class="text-[0.6rem] font-medium mt-0.5">Mandatory</div></div>
+
+                <!-- End of Day Time (Active before Mandatory) -->
+                <div class="header-cell text-center text-indigo-700 border-l border-r border-indigo-200">EoD<div class="text-[0.6rem] font-medium mt-0.5">Active</div></div>
+                <div class="header-cell text-center text-indigo-700">EoD<div class="text-[0.6rem] font-medium mt-0.5">Mandatory</div></div>
+
+                <div class="header-cell text-center font-bold text-gray-800">Actions</div>
+            </div>
+        </div>
+
+        <!-- Dashboard Body Container -->
+        <div id="dashboard-container" class="border-x border-b rounded-b-lg divide-y divide-gray-200">
+            <!-- Dynamic content will be rendered here -->
+        </div>
+        
+        <!-- Add Group Button -->
+        <div class="mt-6">
+            <button id="add-group-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-150 ease-in-out transform hover:scale-[1.005] focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50">
+                + Add New Group
+            </button>
+        </div>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div id="image-modal" class="modal-overlay">
+        <div class="modal-content relative">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Preview Workflow</h2>
+            
+            <!-- Placeholder Image: Using a generic diagram placeholder -->
+            <img id="preview-image" 
+                src="previewworkflow.png"
+                alt="Workflow Diagram Preview" 
+                class="modal-image"
+                onerror="this.onerror=null; this.src='https://placehold.co/800x600/f87171/ffffff?text=Image+Load+Failed';"
+            />
+
+            <!-- Close Button -->
+            <button onclick="closeImageModal()" 
+                    class="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-700 transition duration-150 shadow-md" 
+                    title="Close Preview">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+
+    <script>
+        // Use a simple, global state object to manage the dashboard data, initialized from CSV.
+        let dashboardState = [
+            {
+                id: crypto.randomUUID(),
+                name: "Shift Manager's Tasks",
+                isEnabled: true,
+                enableSoD: true, // NEW
+                enableMD: true, // NEW
+                enableEoD: true, // NEW
+                tasks: [
+                    { id: crypto.randomUUID(), iid: "Rev_Forecast", name: "Review Forecast", order: 1, isTaskMandatory: true,
+                        startOfDay: { isMandatory: true, isActive: true }, 
+                        midDay: { isMandatory: true, isActive: true }, 
+                        endOfDay: { isMandatory: true, isActive: true } 
+                    },
+                    { id: crypto.randomUUID(), iid: "Act_Sales", name: "Actual Sales", order: 2, isTaskMandatory: false,
+                        startOfDay: { isMandatory: false, isActive: false }, 
+                        midDay: { isMandatory: false, isActive: false }, 
+                        endOfDay: { isMandatory: false, isActive: false } 
+                    },
+                ]
+            },
+            {
+                id: crypto.randomUUID(),
+                name: "Food Management",
+                isEnabled: true,
+                enableSoD: true, // NEW
+                enableMD: true, // NEW
+                enableEoD: true, // NEW
+                tasks: [
+                    { id: crypto.randomUUID(), iid: "Ordering", name: "Ordering", order: 1, isTaskMandatory: false,
+                        startOfDay: { isMandatory: false, isActive: false }, 
+                        midDay: { isMandatory: false, isActive: true }, 
+                        endOfDay: { isMandatory: false, isActive: false } 
+                    },
+                    { id: crypto.randomUUID(), iid: "Receiving", name: "Receiving", order: 2, isTaskMandatory: false,
+                        startOfDay: { isMandatory: false, isActive: false }, 
+                        midDay: { isMandatory: false, isActive: true }, 
+                        endOfDay: { isMandatory: false, isActive: false } 
+                    },
+                    { id: crypto.randomUUID(), iid: "Transfer", name: "Transfer", order: 3, isTaskMandatory: false,
+                        startOfDay: { isMandatory: false, isActive: false }, 
+                        midDay: { isMandatory: false, isActive: false }, 
+                        endOfDay: { isMandatory: false, isActive: true } 
+                    },
+                    { id: crypto.randomUUID(), iid: "Waste", name: "Waste", order: 4, isTaskMandatory: false,
+                        startOfDay: { isMandatory: false, isActive: false }, 
+                        midDay: { isMandatory: false, isActive: false }, 
+                        endOfDay: { isMandatory: false, isActive: false } 
+                    },
+                ]
+            },
+            {
+                id: crypto.randomUUID(),
+                name: "Labor Management",
+                isEnabled: true,
+                enableSoD: true, // NEW
+                enableMD: true, // NEW
+                enableEoD: true, // NEW
+                tasks: [
+                    { id: crypto.randomUUID(), iid: "Schedule", name: "Schedule", order: 1, isTaskMandatory: true,
+                        startOfDay: { isMandatory: true, isActive: true }, 
+                        midDay: { isMandatory: false, isActive: false }, 
+                        endOfDay: { isMandatory: false, isActive: false } 
+                    },
+                    { id: crypto.randomUUID(), iid: "Pend_Emp", name: "Pending Employees", order: 2, isTaskMandatory: false,
+                        startOfDay: { isMandatory: false, isActive: false }, 
+                        midDay: { isMandatory: false, isActive: true }, 
+                        endOfDay: { isMandatory: false, isActive: false } 
+                    },
+                    { id: crypto.randomUUID(), iid: "Violation", name: "Violation", order: 3, isTaskMandatory: false,
+                        startOfDay: { isMandatory: false, isActive: false }, 
+                        midDay: { isMandatory: false, isActive: true }, 
+                        endOfDay: { isMandatory: false, isActive: false } 
+                    },
+                    { id: crypto.randomUUID(), iid: "Time_Loss_Sum", name: "Time Loss Summary", order: 4, isTaskMandatory: false,
+                        startOfDay: { isMandatory: false, isActive: false }, 
+                        midDay: { isMandatory: false, isActive: true }, 
+                        endOfDay: { isMandatory: false, isActive: false } 
+                    },
+                ]
+            },
+            {
+                id: crypto.randomUUID(),
+                name: "Payroll Management",
+                isEnabled: true,
+                enableSoD: true, // NEW
+                enableMD: true, // NEW
+                enableEoD: true, // NEW
+                tasks: [
+                    { id: crypto.randomUUID(), iid: "Punch_Exception", name: "Punch Exception", order: 1, isTaskMandatory: false,
+                        startOfDay: { isMandatory: false, isActive: false }, 
+                        midDay: { isMandatory: false, isActive: false }, 
+                        endOfDay: { isMandatory: false, isActive: true } 
+                    },
+                    { id: crypto.randomUUID(), iid: "Review_Punches", name: "Review Punches", order: 2, isTaskMandatory: true,
+                        startOfDay: { isMandatory: true, isActive: true }, 
+                        midDay: { isMandatory: true, isActive: true }, 
+                        endOfDay: { isMandatory: true, isActive: true } 
+                    },
+                    { id: crypto.randomUUID(), iid: "Misc_Pay", name: "Misc Pay", order: 3, isTaskMandatory: true,
+                        startOfDay: { isMandatory: true, isActive: true }, 
+                        midDay: { isMandatory: true, isActive: true }, 
+                        endOfDay: { isMandatory: true, isActive: true } 
+                    },
+                ]
+            }
+        ];
+
+        const container = document.getElementById('dashboard-container');
+        const addGroupBtn = document.getElementById('add-group-btn');
+
+        // Helper function for the custom group enable/disable toggle switch HTML
+        const getToggleHtml = (groupId, isEnabled) => `
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input 
+                    type="checkbox" 
+                    value="${groupId}" 
+                    class="sr-only peer" 
+                    ${isEnabled ? 'checked' : ''}
+                    onchange="handleGroupToggle(this.value, this.checked)"
+                >
+                <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
+            </label>
+        `;
+
+        // Helper function for the new time slot group toggles (FIXED FOR NO OVERLAP)
+        const getTimeToggleHtml = (groupId, slot, isEnabled) => `
+            <!-- Flex container to hold label and toggle, preventing overlap -->
+            <div class="flex flex-col items-center justify-center space-y-1">
+                <span class="text-xs font-semibold text-gray-700 whitespace-nowrap">Enable ${slot}</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        class="sr-only peer" 
+                        ${isEnabled ? 'checked' : ''}
+                        onchange="handleTimeSlotToggle('${groupId}', '${slot}', this.checked)"
+                    >
+                    <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 shadow-inner"></div>
+                </label>
+            </div>
+        `;
+        
+        // Find a group by ID
+        const findGroup = (groupId) => dashboardState.find(g => g.id === groupId);
+
+        // Find a task by ID within a group
+        const findTask = (groupId, taskId) => {
+            const group = findGroup(groupId);
+            return group ? group.tasks.find(t => t.id === taskId) : null;
+        };
+
+        // Function to update a group property
+        window.updateGroupProperty = (groupId, key, value) => {
+            const group = findGroup(groupId);
+            if (group) {
+                group[key] = value;
+                if (key === 'name') {
+                    renderDashboard(); 
+                }
+            }
+        };
+
+        // Function to handle the group Enable/Disable toggle (main)
+        window.handleGroupToggle = (groupId, isChecked) => {
+            const group = findGroup(groupId);
+            if (group) {
+                group.isEnabled = isChecked;
+                // Re-render to apply disabling/greying out to all time configuration checkboxes
+                renderDashboard();
+            }
+        };
+
+        // Function to handle the new time slot group toggles (SoD, MD, EoD)
+        window.handleTimeSlotToggle = (groupId, slot, isChecked) => {
+            const group = findGroup(groupId);
+            if (group) {
+                let key;
+                if (slot === 'SoD') key = 'enableSoD';
+                else if (slot === 'MD') key = 'enableMD';
+                else if (slot === 'EoD') key = 'enableEoD';
+
+                if (key) {
+                    group[key] = isChecked;
+                    renderDashboard();
+                }
+            }
+        };
+
+        // Function to update a nested task property (e.g., 'startOfDay', 'isMandatory', true)
+        window.updateTaskTimeProperty = (groupId, taskId, timeSlot, key, value) => {
+            const task = findTask(groupId, taskId);
+            if (task && task[timeSlot]) {
+                task[timeSlot][key] = value;
+            }
+        };
+
+        // Function to update task order/name/iid/isTaskMandatory
+        window.updateTaskProperty = (groupId, taskId, key, value) => {
+            const task = findTask(groupId, taskId);
+            if (task) {
+                if (key === 'order') {
+                    task[key] = parseInt(value);
+                    renderDashboard();
+                } else if (key === 'isTaskMandatory') {
+                    task[key] = value;
+                } else {
+                    task[key] = value;
+                }
+            }
+        };
+        
+        // Function to delete a task
+        window.deleteTask = (groupId, taskId) => {
+            const group = findGroup(groupId);
+            if (group) {
+                group.tasks = group.tasks.filter(t => t.id !== taskId);
+                renderDashboard();
+            }
+        };
+
+
+        // Function to add a new task to a specific group
+        window.addTask = (groupId) => {
+            const group = findGroup(groupId);
+            if (group) {
+                const newOrder = group.tasks.length > 0 ? Math.max(...group.tasks.map(t => t.order)) + 1 : 1;
+                group.tasks.push({
+                    id: crypto.randomUUID(),
+                    iid: "NEW_IID",
+                    name: "New Task Description (Click to edit)",
+                    order: newOrder,
+                    isTaskMandatory: false, // Default for new tasks
+                    startOfDay: { isMandatory: false, isActive: false }, 
+                    midDay: { isMandatory: false, isActive: false }, 
+                    endOfDay: { isMandatory: false, isActive: false }
+                });
+                renderDashboard();
+            }
+        };
+
+        // Function to add a new group
+        const addGroup = () => {
+            dashboardState.push({
+                id: crypto.randomUUID(),
+                name: "New Group (Click to edit)",
+                isEnabled: true,
+                enableSoD: true, 
+                enableMD: true, 
+                enableEoD: true, 
+                tasks: [] // Starts with no tasks
+            });
+            renderDashboard(); 
+        };
+
+        // Modal functions
+        window.openImageModal = () => {
+            const modal = document.getElementById('image-modal');
+            modal.classList.add('active');
+        };
+
+        window.closeImageModal = () => {
+            const modal = document.getElementById('image-modal');
+            modal.classList.remove('active');
+        };
+
+        // Renders the entire dashboard based on the current state
+        function renderDashboard() {
+            container.innerHTML = ''; // Clear existing content
+
+            dashboardState.forEach(group => {
+                const groupIsDisabled = !group.isEnabled;
+                
+                // --- 1. Render Group Row (Header/Controls) ---
+                const groupDiv = document.createElement('div');
+                groupDiv.className = `dashboard-grid group-row font-medium text-gray-800 transition-all duration-200`;
+                groupDiv.innerHTML = `
+                    <!-- Group Name (Column 1) - Always editable -->
+                    <div class="data-cell align-left bg-gray-50 flex items-center space-x-2 border-b border-gray-200">
+                        <svg class="w-4 h-4 text-indigo-500 min-w-[1rem]" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-7-8a7 7 0 1114 0 7 7 0 01-14 0z" clip-rule="evenodd"></path><path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path></svg>
+                        <input
+                            type="text"
+                            value="${group.name}"
+                            class="w-full font-bold bg-transparent border-none p-0 text-base focus:ring-0"
+                            placeholder="Enter Group Name"
+                            onchange="updateGroupProperty('${group.id}', 'name', this.value)"
+                        />
+                    </div>
+                    
+                    <!-- Enable/Disable (Column 2) - Moved to be next to the name -->
+                    <div class="data-cell bg-gray-50 flex items-center justify-center border-b border-gray-200">
+                        ${getToggleHtml(group.id, group.isEnabled)}
+                    </div> 
+
+                    <!-- Blank Cells for Group Row (Columns 3-12 merged) -->
+                    <div class="data-cell bg-gray-50 col-span-10 border-b border-gray-200"></div> 
+                `;
+                container.appendChild(groupDiv); // Append the group header
+                
+                // --- 1.1. Render Time Slot Group Toggles (NEW ROW) ---
+                const timeToggleDiv = document.createElement('div');
+                timeToggleDiv.className = `dashboard-grid bg-gray-200 border-b border-gray-300`; 
+                timeToggleDiv.innerHTML = `
+                    <!-- Spacer for Task Metadata columns (Columns 1-5) -->
+                    <div class="data-cell col-span-5 bg-gray-200 py-2"></div> 
+                    
+                    <!-- SoD Toggle (Columns 6 & 7) -->
+                    <div class="data-cell col-span-2 bg-indigo-50 flex justify-center py-2 border-r border-gray-300">
+                        ${getTimeToggleHtml(group.id, 'SoD', group.enableSoD)}
+                    </div>
+                    
+                    <!-- MD Toggle (Columns 8 & 9) -->
+                    <div class="data-cell col-span-2 bg-indigo-100 flex justify-center py-2 border-r border-gray-300">
+                        ${getTimeToggleHtml(group.id, 'MD', group.enableMD)}
+                    </div>
+                    
+                    <!-- EoD Toggle (Columns 10 & 11) -->
+                    <div class="data-cell col-span-2 bg-indigo-50 flex justify-center py-2">
+                        ${getTimeToggleHtml(group.id, 'EoD', group.enableEoD)}
+                    </div>
+
+                    <!-- Spacer for Actions column (Column 12) -->
+                    <div class="data-cell col-span-1 bg-gray-200 py-2"></div>
+                `;
+                container.appendChild(timeToggleDiv);
+
+                // --- 2. Render Task Rows ---
+                group.tasks.sort((a, b) => a.order - b.order).forEach(task => {
+                    const taskDiv = document.createElement('div');
+                    taskDiv.className = `dashboard-grid task-row text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-100`; 
+
+                    // Check if group is disabled (main) OR if the specific time slot is disabled
+                    const groupIsCompletelyDisabled = groupIsDisabled;
+                    const isSoDEnabled = group.enableSoD;
+                    const isMDEnabled = group.enableMD;
+                    const isEoDEnabled = group.enableEoD;
+
+                    const soDDisabledClass = !isSoDEnabled || groupIsCompletelyDisabled ? 'time-slot-disabled' : ''; 
+                    const soDInputDisabledAttr = !isSoDEnabled || groupIsCompletelyDisabled ? 'disabled' : '';
+
+                    const mDDisabledClass = !isMDEnabled || groupIsCompletelyDisabled ? 'time-slot-disabled' : ''; 
+                    const mDInputDisabledAttr = !isMDEnabled || groupIsCompletelyDisabled ? 'disabled' : '';
+
+                    const eoDDisabledClass = !isEoDEnabled || groupIsCompletelyDisabled ? 'time-slot-disabled' : ''; 
+                    const eoDInputDisabledAttr = !isEoDEnabled || groupIsCompletelyDisabled ? 'disabled' : '';
+                    
+                    const renderCheckbox = (slot, key, isChecked, isMandatory, isDisabledClass, isDisabledAttr) => {
+                        // Background colors match the column group colors
+                        const bgClass = slot === 'midDay' ? 'bg-indigo-100/50' : 'bg-white';
+                        const checkClass = isMandatory ? 'mandatory-red' : 'active-blue';
+                        const titleText = `${slot} ${key === 'isMandatory' ? 'Mandatory' : 'Active'}`;
+                        
+                        return `
+                        <!-- Apply disable class to the parent cell for visual grey-out and pointer-events block -->
+                        <div class="data-cell ${bgClass} ${isDisabledClass}"> 
+                            <input
+                                type="checkbox"
+                                ${isChecked ? 'checked' : ''}
+                                class="h-4 w-4 rounded shadow-sm ${checkClass}"
+                                onchange="updateTaskTimeProperty('${group.id}', '${task.id}', '${slot}', '${key}', this.checked)"
+                                ${isDisabledAttr} 
+                                title="${titleText}"
+                            >
+                        </div>
+                        `;
+                    };
+
+                    const taskRowHtml = `
+                        <!-- Task Name (Description) (Column 1) -->
+                        <div class="data-cell align-left flex items-center space-x-2 pl-6 bg-white">
+                            <input
+                                type="text"
+                                value="${task.name}"
+                                class="w-full text-sm py-1 focus:border-blue-400 focus:shadow-sm bg-transparent"
+                                placeholder="Task Description"
+                                onchange="updateTaskProperty('${group.id}', '${task.id}', 'name', this.value)"
+                            />
+                        </div>
+
+                        <!-- Enable/Disable (Column 2) - Blank for Task Row -->
+                        <div class="data-cell bg-white"></div>
+
+                        <!-- Task IID (Column 3) -->
+                        <div class="data-cell bg-white">
+                            <input
+                                type="text"
+                                value="${task.iid}"
+                                class="w-20 text-center text-xs py-1 font-mono uppercase focus:border-blue-400 focus:shadow-sm"
+                                placeholder="IID"
+                                onchange="updateTaskProperty('${group.id}', '${task.id}', 'iid', this.value)"
+                            />
+                        </div>
+                        
+                        <!-- Task Mandatory (Column 4) -->
+                        <div class="data-cell bg-white">
+                            <input
+                                type="checkbox"
+                                ${task.isTaskMandatory ? 'checked' : ''}
+                                class="h-4 w-4 rounded shadow-sm mandatory-red"
+                                onchange="updateTaskProperty('${group.id}', '${task.id}', 'isTaskMandatory', this.checked)"
+                                title="Overall Task Mandatory"
+                            />
+                        </div>
+                        
+                        <!-- Display Order (Column 5) -->
+                        <div class="data-cell bg-white">
+                            <input
+                                type="number"
+                                min="1"
+                                value="${task.order}"
+                                class="w-16 text-center text-sm focus:border-blue-400 focus:shadow-sm"
+                                onchange="updateTaskProperty('${group.id}', '${task.id}', 'order', this.value);"
+                            />
+                        </div>
+
+                        <!-- Time Slot Configuration (Columns 6-11) - Active before Mandatory -->
+                        ${renderCheckbox('startOfDay', 'isActive', task.startOfDay.isActive, false, soDDisabledClass, soDInputDisabledAttr)}
+                        ${renderCheckbox('startOfDay', 'isMandatory', task.startOfDay.isMandatory, true, soDDisabledClass, soDInputDisabledAttr)}
+                        ${renderCheckbox('midDay', 'isActive', task.midDay.isActive, false, mDDisabledClass, mDInputDisabledAttr)}
+                        ${renderCheckbox('midDay', 'isMandatory', task.midDay.isMandatory, true, mDDisabledClass, mDInputDisabledAttr)}
+                        ${renderCheckbox('endOfDay', 'isActive', task.endOfDay.isActive, false, eoDDisabledClass, eoDInputDisabledAttr)}
+                        ${renderCheckbox('endOfDay', 'isMandatory', task.endOfDay.isMandatory, true, eoDDisabledClass, eoDInputDisabledAttr)}
+
+                        <!-- Delete Button (Column 12) -->
+                        <div class="data-cell bg-white">
+                            <button 
+                                onclick="deleteTask('${group.id}', '${task.id}')" 
+                                class="p-1 rounded-full text-red-500 hover:bg-red-100 transition duration-150"
+                                title="Delete Task"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                    taskDiv.innerHTML = taskRowHtml;
+                    container.appendChild(taskDiv);
+                });
+
+                // --- 3. Render Add Task Button ---
+                const addTaskDiv = document.createElement('div');
+                // The Add Task button spans the full width of the grid (12 columns)
+                addTaskDiv.className = `dashboard-grid bg-gray-50 hover:bg-gray-100 transition duration-150 border-t border-b border-dashed border-gray-300`;
+                addTaskDiv.innerHTML = `
+                    <div class="data-cell col-span-12 flex items-center justify-center py-2">
+                        <button 
+                            class="text-indigo-600 hover:text-indigo-800 font-semibold text-sm px-4 py-1 rounded-full border border-indigo-400 hover:border-indigo-600 transition duration-150"
+                            onclick="addTask('${group.id}')"
+                        >
+                            + Add Task to ${group.name}
+                        </button>
+                    </div>
+                `;
+                container.appendChild(addTaskDiv);
+
+            });
+        }
+
+        // Event Listener for Add Group Button
+        addGroupBtn.addEventListener('click', addGroup);
+
+        // Initial render on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            renderDashboard();
+
+            // Allow closing modal by clicking outside
+            const modal = document.getElementById('image-modal');
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    // Check if the click occurred directly on the overlay, not the content
+                    if (e.target.id === 'image-modal') {
+                        closeImageModal();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

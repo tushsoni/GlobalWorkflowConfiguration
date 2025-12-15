@@ -115,12 +115,37 @@
         .module-icon-wrapper > .absolute div { width: 34px !important; height: 34px !important; border-radius: 10px !important; }
         .module-icon-wrapper > .absolute i { width: 16px !important; height: 16px !important; }
         
-        /* Disabled Module Styling */
+        /* Disabled Module Styling (Day Part applies first, then Module specific) */
         .disabled-day-part .module-icon-wrapper > .absolute div { 
             opacity: 0.6;
             filter: grayscale(100%);
         }
         .disabled-day-part h4 { color: #6b7280 !important; }
+
+        /* --- NEW MODULE DISABLED STYLES --- */
+        .disabled-module .module-icon-wrapper > .absolute div { 
+            opacity: 0.5;
+            filter: grayscale(100%);
+            border-color: #e5e7eb !important;
+        }
+        .disabled-module h4 { 
+            color: #9ca3af !important; 
+        }
+        .disabled-module .task-tile {
+            opacity: 0.5;
+            cursor: default;
+            pointer-events: none; /* Disable all interactions */
+            box-shadow: none !important;
+        }
+        .disabled-module .task-label {
+            color: #9ca3af !important;
+        }
+        .disabled-module .add-task-button-inline {
+            opacity: 0.5;
+            pointer-events: none;
+            cursor: default !important;
+        }
+        /* --- END NEW MODULE DISABLED STYLES --- */
 
         .add-task-button {
             display: inline-flex;
@@ -231,7 +256,27 @@
         input:checked + .slider:before {
             transform: translateX(16px);
         }
+        
+        /* Custom styles for smaller module toggle */
+        .toggle-switch .slider.!rounded-full.!w-9.!h-5.!bg-gray-400 {
+            background-color: #9ca3af; /* Default gray for disabled module */
+        }
 
+        .toggle-switch .slider.!rounded-full.!w-9.!h-5.!bg-gray-400:before {
+            height: 14px;
+            width: 14px;
+            left: 2px;
+            bottom: 3px;
+        }
+        
+        .toggle-switch input:checked + .slider.!bg-indigo-600 {
+            background-color: #4f46e5; /* Custom indigo for enabled module */
+        }
+        
+        .toggle-switch input:checked + .slider.!bg-indigo-600:before {
+            transform: translateX(18px);
+        }
+        /* End Custom styles for smaller module toggle */
     </style>
 </head>
 <body class="bg-gray-50">
@@ -392,8 +437,9 @@
                                 <div class="timeline-line"></div>
                                 
                                 <template x-for="module in getWorkflowModules('Start of Day')" :key="module.name">
-                                    <div class="relative mb-4 module-icon-wrapper" x-show="hasVisibleTasks(module.name, 'Start of Day') || (module.customGroup && isDayPartEnabled('Start of Day'))">
-                                        <div class="absolute left-0 top-2">
+                                    <div class="relative mb-4 module-icon-wrapper" 
+                                        x-show="hasVisibleTasks(module.name, 'Start of Day') || (module.customGroup && isDayPartEnabled('Start of Day'))"
+                                        :class="{'disabled-module': !module.enabled || !isDayPartEnabled('Start of Day')}"> <div class="absolute left-0 top-2">
                                             <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ring-4 ring-white"
                                                 :class="module.colorClasses">
                                                 <i :data-lucide="module.icon" class="w-5 h-5"></i>
@@ -402,30 +448,38 @@
 
                                         <div class="flex flex-col gap-2 pl-11">
                                             <div class="flex items-center gap-4">
-                                                <h4 class="text-sm font-bold text-gray-900" 
-                                                    :contenteditable="module.customGroup && isDayPartEnabled('Start of Day')"
-                                                    @blur="if(module.customGroup && isDayPartEnabled('Start of Day')) updateModuleName(module, $event.target.textContent.trim())"
+                                                <h4 class="text-sm font-bold text-gray-900 flex items-center gap-3" 
+                                                    :contenteditable="module.customGroup && isDayPartEnabled('Start of Day') && module.enabled"
+                                                    @blur="if(module.customGroup && isDayPartEnabled('Start of Day') && module.enabled) updateModuleName(module, $event.target.textContent.trim())"
                                                     x-text="module.name"></h4>
 
+                                                <label class="toggle-switch !w-9 !h-5 flex-shrink-0" @click.stop>
+                                                    <input type="checkbox" x-model="module.enabled">
+                                                    <span class="slider !rounded-full !w-9 !h-5 !bg-gray-400" 
+                                                        :class="{'!bg-indigo-600': module.enabled}">
+                                                        <span class="!w-4 !h-4 !bottom-0.5 !left-0.5" 
+                                                            :class="{'!transform !translate-x-4': module.enabled}"></span>
+                                                    </span>
+                                                </label>
                                                 <div class="flex flex-wrap gap-2 p-1 rounded-lg transition-all min-h-[40px] flex-1"
-                                                    @dragover.prevent="if(isDayPartEnabled('Start of Day')) dragOverModule($event, module.name, 'Start of Day')"
-                                                    @dragenter.prevent="if(isDayPartEnabled('Start of Day')) dragEnterModule($event, module.name, 'Start of Day')"
-                                                    @dragleave.prevent="if(isDayPartEnabled('Start of Day')) dragLeaveModule($event, module.name, 'Start of Day')"
-                                                    @drop.prevent="if(isDayPartEnabled('Start of Day')) dropToModule($event, module.name, 'Start of Day')"
+                                                    @dragover.prevent="if(isDayPartEnabled('Start of Day') && module.enabled) dragOverModule($event, module.name, 'Start of Day')"
+                                                    @dragenter.prevent="if(isDayPartEnabled('Start of Day') && module.enabled) dragEnterModule($event, module.name, 'Start of Day')"
+                                                    @dragleave.prevent="if(isDayPartEnabled('Start of Day') && module.enabled) dragLeaveModule($event, module.name, 'Start of Day')"
+                                                    @drop.prevent="if(isDayPartEnabled('Start of Day') && module.enabled) dropToModule($event, module.name, 'Start of Day')"
                                                     :class="{ 'module-drop-target': isDropTarget(module.name, 'Start of Day') }">
 
                                                     <template x-for="task in getModuleTasks(module.name, 'Start of Day')" :key="task.id">
                                                         <div x-show="!task.hidden"
                                                             :class="getTaskCardClass(task, activeTaskId, draggedTaskId)"
                                                             class="task-tile"
-                                                            :draggable="isDayPartEnabled('Start of Day')"
-                                                            @dragstart="if (isDayPartEnabled('Start of Day')) dragStart($event, task.id, 'task')"
-                                                            @dragend="if (isDayPartEnabled('Start of Day')) dragEnd($event)"
-                                                            @dragover.prevent.stop="if (isDayPartEnabled('Start of Day')) dragOverTask($event, task.id)"
-                                                            @dragleave.prevent.stop="if (isDayPartEnabled('Start of Day')) dragLeaveTask($event, task.id)"
-                                                            @drop.prevent.stop="if (isDayPartEnabled('Start of Day')) dropOnTask($event, task.id)"
-                                                            @click="openTaskPopup(task)"
-                                                            @contextmenu.prevent="if (isDayPartEnabled('Start of Day')) openContextMenu($event, task)"
+                                                            :draggable="isDayPartEnabled('Start of Day') && module.enabled"
+                                                            @dragstart="if (isDayPartEnabled('Start of Day') && module.enabled) dragStart($event, task.id, 'task')"
+                                                            @dragend="if (isDayPartEnabled('Start of Day') && module.enabled) dragEnd($event)"
+                                                            @dragover.prevent.stop="if (isDayPartEnabled('Start of Day') && module.enabled) dragOverTask($event, task.id)"
+                                                            @dragleave.prevent.stop="if (isDayPartEnabled('Start of Day') && module.enabled) dragLeaveTask($event, task.id)"
+                                                            @drop.prevent.stop="if (isDayPartEnabled('Start of Day') && module.enabled) dropOnTask($event, task.id)"
+                                                            @click="if (isDayPartEnabled('Start of Day') && module.enabled) openTaskPopup(task)"
+                                                            @contextmenu.prevent="if (isDayPartEnabled('Start of Day') && module.enabled) openContextMenu($event, task)"
                                                             x-init="$nextTick(() => lucide.createIcons())">
                                                             
                                                             <div x-show="false" class="task-badge" x-text="task.badge"></div>
@@ -441,8 +495,8 @@
 
                                                     <div 
                                                         x-show="isDayPartEnabled('Start of Day')"
-                                                        class="flex items-center justify-center cursor-pointer mt-1"
-                                                        @click="openAddTaskPopup(module.name, 'Start of Day')"
+                                                        class="flex items-center justify-center cursor-pointer mt-1 add-task-button-inline"
+                                                        @click="if (module.enabled) openAddTaskPopup(module.name, 'Start of Day')"
                                                     >
                                                         <div class="w-8 h-8 rounded-full bg-blue-100 border border-blue-300 text-blue-600 flex items-center justify-center shadow-sm hover:bg-blue-200 hover:scale-105 transition">
                                                             <span class="text-xl leading-none font-bold">+</span>
@@ -510,8 +564,9 @@
                                     <div class="timeline-line"></div>
 
                                     <template x-for="module in getWorkflowModules(dayPart.name)" :key="module.name">
-                                        <div class="relative mb-4 module-icon-wrapper" x-show="hasVisibleTasks(module.name, dayPart.name) || (module.customGroup && isDayPartEnabled(dayPart.name))">
-                                            <div class="absolute left-0 top-2">
+                                        <div class="relative mb-4 module-icon-wrapper" 
+                                            x-show="hasVisibleTasks(module.name, dayPart.name) || (module.customGroup && isDayPartEnabled(dayPart.name))"
+                                            :class="{'disabled-module': !module.enabled || !isDayPartEnabled(dayPart.name)}"> <div class="absolute left-0 top-2">
                                                 <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ring-4 ring-white"
                                                     :class="module.colorClasses">
                                                     <i :data-lucide="module.icon" class="w-5 h-5"></i>
@@ -520,30 +575,38 @@
 
                                             <div class="flex flex-col gap-2 pl-11">
                                                 <div class="flex items-center gap-4">
-                                                    <h4 class="text-sm font-bold text-gray-900" 
-                                                        :contenteditable="module.customGroup && isDayPartEnabled(dayPart.name)"
-                                                        @blur="if(module.customGroup && isDayPartEnabled(dayPart.name)) updateModuleName(module, $event.target.textContent.trim())"
+                                                    <h4 class="text-sm font-bold text-gray-900 flex items-center gap-3" 
+                                                        :contenteditable="module.customGroup && isDayPartEnabled(dayPart.name) && module.enabled"
+                                                        @blur="if(module.customGroup && isDayPartEnabled(dayPart.name) && module.enabled) updateModuleName(module, $event.target.textContent.trim())"
                                                         x-text="module.name"></h4>
 
+                                                    <label class="toggle-switch !w-9 !h-5 flex-shrink-0" @click.stop>
+                                                        <input type="checkbox" x-model="module.enabled">
+                                                        <span class="slider !rounded-full !w-9 !h-5 !bg-gray-400" 
+                                                            :class="{'!bg-indigo-600': module.enabled}">
+                                                            <span class="!w-4 !h-4 !bottom-0.5 !left-0.5" 
+                                                                :class="{'!transform !translate-x-4': module.enabled}"></span>
+                                                        </span>
+                                                    </label>
                                                     <div class="flex flex-wrap gap-2 p-1 rounded-lg transition-all min-h-[40px] flex-1"
-                                                        @dragover.prevent="if(isDayPartEnabled(dayPart.name)) dragOverModule($event, module.name, dayPart.name)"
-                                                        @dragenter.prevent="if(isDayPartEnabled(dayPart.name)) dragEnterModule($event, module.name, dayPart.name)"
-                                                        @dragleave.prevent="if(isDayPartEnabled(dayPart.name)) dragLeaveModule($event, module.name, dayPart.name)"
-                                                        @drop.prevent="if(isDayPartEnabled(dayPart.name)) dropToModule($event, module.name, dayPart.name)"
+                                                        @dragover.prevent="if(isDayPartEnabled(dayPart.name) && module.enabled) dragOverModule($event, module.name, dayPart.name)"
+                                                        @dragenter.prevent="if(isDayPartEnabled(dayPart.name) && module.enabled) dragEnterModule($event, module.name, dayPart.name)"
+                                                        @dragleave.prevent="if(isDayPartEnabled(dayPart.name) && module.enabled) dragLeaveModule($event, module.name, dayPart.name)"
+                                                        @drop.prevent="if(isDayPartEnabled(dayPart.name) && module.enabled) dropToModule($event, module.name, dayPart.name)"
                                                         :class="{ 'module-drop-target': isDropTarget(module.name, dayPart.name) }">
 
                                                         <template x-for="task in getModuleTasks(module.name, dayPart.name)" :key="task.id">
                                                             <div x-show="!task.hidden"
                                                                 :class="getTaskCardClass(task, activeTaskId, draggedTaskId)"
                                                                 class="task-tile"
-                                                                :draggable="isDayPartEnabled(dayPart.name)"
-                                                                @dragstart="if (isDayPartEnabled(dayPart.name)) dragStart($event, task.id, 'task')"
-                                                                @dragend="if (isDayPartEnabled(dayPart.name)) dragEnd($event)"
-                                                                @dragover.prevent.stop="if (isDayPartEnabled(dayPart.name)) dragOverTask($event, task.id)"
-                                                                @dragleave.prevent.stop="if (isDayPartEnabled(dayPart.name)) dragLeaveTask($event, task.id)"
-                                                                @drop.prevent.stop="if (isDayPartEnabled(dayPart.name)) dropOnTask($event, task.id)"
-                                                                @click="openTaskPopup(task)"
-                                                                @contextmenu.prevent="if (isDayPartEnabled(dayPart.name)) openContextMenu($event, task)"
+                                                                :draggable="isDayPartEnabled(dayPart.name) && module.enabled"
+                                                                @dragstart="if (isDayPartEnabled(dayPart.name) && module.enabled) dragStart($event, task.id, 'task')"
+                                                                @dragend="if (isDayPartEnabled(dayPart.name) && module.enabled) dragEnd($event)"
+                                                                @dragover.prevent.stop="if (isDayPartEnabled(dayPart.name) && module.enabled) dragOverTask($event, task.id)"
+                                                                @dragleave.prevent.stop="if (isDayPartEnabled(dayPart.name) && module.enabled) dragLeaveTask($event, task.id)"
+                                                                @drop.prevent.stop="if (isDayPartEnabled(dayPart.name) && module.enabled) dropOnTask($event, task.id)"
+                                                                @click="if (isDayPartEnabled(dayPart.name) && module.enabled) openTaskPopup(task)"
+                                                                @contextmenu.prevent="if (isDayPartEnabled(dayPart.name) && module.enabled) openContextMenu($event, task)"
                                                                 x-init="$nextTick(() => lucide.createIcons())">
                                                                 
                                                                 <div x-show="false" class="task-badge" x-text="task.badge"></div>
@@ -557,8 +620,8 @@
 
                                                         <div 
                                                             x-show="isDayPartEnabled(dayPart.name)"
-                                                            class="flex items-center justify-center cursor-pointer mt-1"
-                                                            @click="openAddTaskPopup(module.name, dayPart.name)"
+                                                            class="flex items-center justify-center cursor-pointer mt-1 add-task-button-inline"
+                                                            @click="if (module.enabled) openAddTaskPopup(module.name, dayPart.name)"
                                                         >
                                                             <div class="w-8 h-8 rounded-full bg-blue-100 border border-blue-300 text-blue-600 flex items-center justify-center shadow-sm hover:bg-blue-200 hover:scale-105 transition">
                                                                 <span class="text-xl leading-none font-bold">+</span>
@@ -619,8 +682,9 @@
                                 <div class="timeline-line"></div>
 
                                 <template x-for="module in getWorkflowModules('Close of Day')" :key="module.name">
-                                    <div class="relative mb-4 module-icon-wrapper" x-show="hasVisibleTasks(module.name, 'Close of Day') || (module.customGroup && isDayPartEnabled('Close of Day'))">
-                                        <div class="absolute left-0 top-2">
+                                    <div class="relative mb-4 module-icon-wrapper" 
+                                        x-show="hasVisibleTasks(module.name, 'Close of Day') || (module.customGroup && isDayPartEnabled('Close of Day'))"
+                                        :class="{'disabled-module': !module.enabled || !isDayPartEnabled('Close of Day')}"> <div class="absolute left-0 top-2">
                                             <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ring-4 ring-white"
                                                 :class="module.colorClasses">
                                                 <i :data-lucide="module.icon" class="w-5 h-5"></i>
@@ -629,30 +693,38 @@
 
                                         <div class="flex flex-col gap-2 pl-11">
                                             <div class="flex items-center gap-4">
-                                                <h4 class="text-sm font-bold text-gray-900" 
-                                                    :contenteditable="module.customGroup && isDayPartEnabled('Close of Day')"
-                                                    @blur="if(module.customGroup && isDayPartEnabled('Close of Day')) updateModuleName(module, $event.target.textContent.trim())"
+                                                <h4 class="text-sm font-bold text-gray-900 flex items-center gap-3" 
+                                                    :contenteditable="module.customGroup && isDayPartEnabled('Close of Day') && module.enabled"
+                                                    @blur="if(module.customGroup && isDayPartEnabled('Close of Day') && module.enabled) updateModuleName(module, $event.target.textContent.trim())"
                                                     x-text="module.name"></h4>
 
+                                                <label class="toggle-switch !w-9 !h-5 flex-shrink-0" @click.stop>
+                                                    <input type="checkbox" x-model="module.enabled">
+                                                    <span class="slider !rounded-full !w-9 !h-5 !bg-gray-400" 
+                                                        :class="{'!bg-indigo-600': module.enabled}">
+                                                        <span class="!w-4 !h-4 !bottom-0.5 !left-0.5" 
+                                                            :class="{'!transform !translate-x-4': module.enabled}"></span>
+                                                    </span>
+                                                </label>
                                                 <div class="flex flex-wrap gap-2 p-1 rounded-lg transition-all min-h-[40px] flex-1"
-                                                    @dragover.prevent="if(isDayPartEnabled('Close of Day')) dragOverModule($event, module.name, 'Close of Day')"
-                                                    @dragenter.prevent="if(isDayPartEnabled('Close of Day')) dragEnterModule($event, module.name, 'Close of Day')"
-                                                    @dragleave.prevent="if(isDayPartEnabled('Close of Day')) dragLeaveModule($event, module.name, 'Close of Day')"
-                                                    @drop.prevent="if(isDayPartEnabled('Close of Day')) dropToModule($event, module.name, 'Close of Day')"
+                                                    @dragover.prevent="if(isDayPartEnabled('Close of Day') && module.enabled) dragOverModule($event, module.name, 'Close of Day')"
+                                                    @dragenter.prevent="if(isDayPartEnabled('Close of Day') && module.enabled) dragEnterModule($event, module.name, 'Close of Day')"
+                                                    @dragleave.prevent="if(isDayPartEnabled('Close of Day') && module.enabled) dragLeaveModule($event, module.name, 'Close of Day')"
+                                                    @drop.prevent="if(isDayPartEnabled('Close of Day') && module.enabled) dropToModule($event, module.name, 'Close of Day')"
                                                     :class="{ 'module-drop-target': isDropTarget(module.name, 'Close of Day') }">
 
                                                     <template x-for="task in getModuleTasks(module.name, 'Close of Day')" :key="task.id">
                                                         <div x-show="!task.hidden"
                                                             :class="getTaskCardClass(task, activeTaskId, draggedTaskId)"
                                                             class="task-tile"
-                                                            :draggable="isDayPartEnabled('Close of Day')"
-                                                            @dragstart="if (isDayPartEnabled('Close of Day')) dragStart($event, task.id, 'task')"
-                                                            @dragend="if (isDayPartEnabled('Close of Day')) dragEnd($event)"
-                                                            @dragover.prevent.stop="if (isDayPartEnabled('Close of Day')) dragOverTask($event, task.id)"
-                                                            @dragleave.prevent.stop="if (isDayPartEnabled('Close of Day')) dragLeaveTask($event, task.id)"
-                                                            @drop.prevent.stop="if (isDayPartEnabled('Close of Day')) dropOnTask($event, task.id)"
-                                                            @click="openTaskPopup(task)"
-                                                            @contextmenu.prevent="if (isDayPartEnabled('Close of Day')) openContextMenu($event, task)"
+                                                            :draggable="isDayPartEnabled('Close of Day') && module.enabled"
+                                                            @dragstart="if (isDayPartEnabled('Close of Day') && module.enabled) dragStart($event, task.id, 'task')"
+                                                            @dragend="if (isDayPartEnabled('Close of Day') && module.enabled) dragEnd($event)"
+                                                            @dragover.prevent.stop="if (isDayPartEnabled('Close of Day') && module.enabled) dragOverTask($event, task.id)"
+                                                            @dragleave.prevent.stop="if (isDayPartEnabled('Close of Day') && module.enabled) dragLeaveTask($event, task.id)"
+                                                            @drop.prevent.stop="if (isDayPartEnabled('Close of Day') && module.enabled) dropOnTask($event, task.id)"
+                                                            @click="if (isDayPartEnabled('Close of Day') && module.enabled) openTaskPopup(task)"
+                                                            @contextmenu.prevent="if (isDayPartEnabled('Close of Day') && module.enabled) openContextMenu($event, task)"
                                                             x-init="$nextTick(() => lucide.createIcons())">
                                                             
                                                             <div x-show="false" class="task-badge" x-text="task.badge"></div>
@@ -667,8 +739,8 @@
 
                                                     <div 
                                                         x-show="isDayPartEnabled('Close of Day')"
-                                                        class="flex items-center justify-center cursor-pointer mt-1"
-                                                        @click="openAddTaskPopup(module.name, 'Close of Day')"
+                                                        class="flex items-center justify-center cursor-pointer mt-1 add-task-button-inline"
+                                                        @click="if (module.enabled) openAddTaskPopup(module.name, 'Close of Day')"
                                                     >
                                                         <div class="w-8 h-8 rounded-full bg-blue-100 border border-blue-300 text-blue-600 flex items-center justify-center shadow-sm hover:bg-blue-200 hover:scale-105 transition">
                                                             <span class="text-xl leading-none font-bold">+</span>
@@ -720,7 +792,7 @@
                 <div class="p-3 mb-4 border border-blue-200 bg-blue-50 rounded-xl text-sm text-blue-800">
                     <div class="flex items-start gap-2">
                         <i data-lucide="info" class="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5"></i>
-                        <p class="font-medium">Drag any task below into an **enabled** group to add it to the workflow.</p>
+                        <p class="font-medium">Drag any task below into an enabled group to add it to the workflow.</p>
                     </div>
                 </div>
 
@@ -1227,10 +1299,13 @@
                     this.targetDayPartForTimeSlot = null;
                 },
 
-                // --- Context Menu Functions (Restored) ---
+                // --- Context Menu Functions (Updated for Module Check) ---
                 openContextMenu(event, task) {
-                    // Only open if the day part is enabled
+                    // Only open if the day part AND the module is enabled
                     if (!this.isDayPartEnabled(task.category)) return;
+
+                    const module = this.getWorkflowModules(task.category).find(m => m.name === task.app);
+                    if (module && !module.enabled) return; // <-- ADDED CHECK
 
                     event.preventDefault(); 
                     
@@ -1295,6 +1370,7 @@
                     this.initCustomModules(workflow);
                 },
                 
+                // UPDATED: Added enabled property to existing modules
                 initCustomModules(workflow) {
                      if (!workflow.customModules || workflow.customModules.length === 0) {
                         const uniqueModules = new Map();
@@ -1311,12 +1387,20 @@
                                     icon: moduleInfo.icon,
                                     colorClasses: moduleInfo.colorClasses,
                                     category: task.category,
-                                    customGroup: false 
+                                    customGroup: false, 
+                                    enabled: true, // <-- ADDED
                                 });
                             }
                         });
 
                         workflow.customModules = Array.from(uniqueModules.values());
+                    } else {
+                        // Ensure all existing modules have the 'enabled' property (default to true)
+                        workflow.customModules.forEach(m => {
+                            if (typeof m.enabled === 'undefined') {
+                                m.enabled = true;
+                            }
+                        });
                     }
                 },
                 
@@ -1333,7 +1417,8 @@
                         icon: defaultModuleInfo[app]?.icon || 'folder',
                         colorClasses: defaultModuleInfo[app]?.colorClasses || 'bg-gray-500',
                         category: dayPart,
-                        customGroup: false
+                        customGroup: false,
+                        enabled: true, // System Modules fetched this way are active by default
                     }));
                 },
 
@@ -1401,6 +1486,7 @@
                         sourceModules.forEach(module => {
                             const newModule = JSON.parse(JSON.stringify(module));
                             newModule.category = name; 
+                            newModule.enabled = module.enabled; // Maintain enabled state
                             this.activeWorkflow.customModules.push(newModule);
                         });
 
@@ -1496,7 +1582,15 @@
                         const isAlreadyInCustomGroups = allModules.some(cm => cm.name === m.name);
                         
                         if (hasTaskModule && !isAlreadyInCustomGroups) {
-                            allModules.push({ ...m, category: category, customGroup: false });
+                            // Find the definition if it exists in customModules (to preserve state if it was toggled off/on)
+                            const existingModule = this.activeWorkflow.customModules.find(cm => cm.name === m.name && cm.category === category);
+                            
+                            allModules.push({ 
+                                ...m, 
+                                category: category, 
+                                customGroup: false, 
+                                enabled: existingModule ? existingModule.enabled : true, // Preserve state or default to true
+                            });
                         } 
                     });
 
@@ -1532,17 +1626,28 @@
                     module.name = newName;
                 },
                 
-                // --- Drag & Drop Logic ---
+                // --- Drag & Drop Logic (FIXED for Sidebar Drag) ---
                 dragStart(evt, id, type) {
-                    const taskCategory = (type === 'task') ? this.tasks.find(t => t.id === id)?.category : 
-                                         (type === 'sidebarTask') ? null : null;
-                    
-                    if (taskCategory && !this.isDayPartEnabled(taskCategory)) return;
-                    
                     this.dragSourceType = type;
                     this.draggedTaskId = id;
-                    if (type === 'task') { evt.dataTransfer.setData("text/task-id", id); }
-                    if (type === 'sidebarTask') { evt.dataTransfer.setData("text/sidebar-task-id", id); }
+
+                    // Only check module/day part enablement if we are dragging an EXISTING task.
+                    if (type === 'task') {
+                        const task = this.tasks.find(t => t.id === id);
+                        if (!task) return; // Should not happen
+
+                        if (!this.isDayPartEnabled(task.category)) return;
+
+                        const module = this.getWorkflowModules(task.category).find(m => m.name === task.app);
+                        if (module && !module.enabled) return;
+                        
+                        evt.dataTransfer.setData("text/task-id", id);
+                    }
+                    
+                    if (type === 'sidebarTask') { 
+                        evt.dataTransfer.setData("text/sidebar-task-id", id);
+                    }
+                    
                     evt.dataTransfer.effectAllowed = "move";
                     evt.currentTarget.classList.add('task-dragging');
                     this.sidebarOpen = false;
@@ -1558,13 +1663,15 @@
                 },
 
                 dragOverModule(evt, app, category) {
-                    if (!this.draggedTaskId || !this.isDayPartEnabled(category)) return;
+                    // Check moved to HTML to ensure correct module scoping
+                    if (!this.draggedTaskId) return; 
                     evt.preventDefault();
                     this.dropTarget = { app: app, category: category, hoverTaskId: null };
                 },
 
                 dragEnterModule(evt, app, category) {
-                    if (!this.draggedTaskId || !this.isDayPartEnabled(category)) return;
+                    // Check moved to HTML to ensure correct module scoping
+                    if (!this.draggedTaskId) return; 
                     this.dropTarget = { app, category, hoverTaskId: null };
                     evt.preventDefault();
                 },
@@ -1577,7 +1684,11 @@
 
                 dragOverTask(evt, taskId) {
                     const task = this.tasks.find(t => t.id === taskId);
-                    if (!this.draggedTaskId || !task || !this.isDayPartEnabled(task.category)) return;
+                    if (!this.draggedTaskId || !task) return; 
+                    
+                    // Check module enablement here as well (for existing task movement)
+                    const module = this.getWorkflowModules(task.category).find(m => m.name === task.app);
+                    if (!this.isDayPartEnabled(task.category) || (module && !module.enabled)) return;
                     
                     const app = task.app;
                     const category = task.category;
@@ -1591,7 +1702,7 @@
                 },
                 
                 dropToModule(evt, app, category) {
-                    if (!this.isDayPartEnabled(category)) return; 
+                    // Module and Day Part enablement is checked in HTML before calling this function
                     evt.preventDefault();
                     const draggedId = this.draggedTaskId;
                     if (!draggedId) return;
@@ -1599,11 +1710,14 @@
                     if (this.dragSourceType === 'sidebarTask') {
                         const sidebarTask = this.predefinedTasks.find(t => t.id === draggedId);
                         if (!sidebarTask) return;
+                        
+                        // FIX: Ensure the new task uses the target module's name
                         this.activeWorkflow.tasks.push(this.createUniqueTaskCopy(sidebarTask, category, app));
                         this.dragEnd();
                         return;
                     }
 
+                    // Handle internal task move (Task to Module container)
                     const index = this.tasks.findIndex(t => t.id === draggedId);
                     if (index === -1) return;
                     this.activeWorkflow.tasks[index].app = app;
@@ -1615,26 +1729,38 @@
 
                 dropOnTask(evt, targetTaskId) {
                     const targetTask = this.tasks.find(t => t.id === targetTaskId);
-                    if (!targetTask || !this.isDayPartEnabled(targetTask.category)) return; 
+                    if (!targetTask) return; 
+                    
+                    // Check module enablement here as well
+                    const module = this.getWorkflowModules(targetTask.category).find(m => m.name === targetTask.app);
+                    if (!this.isDayPartEnabled(targetTask.category) || (module && !module.enabled)) return;
+                    
                     evt.preventDefault();
                     const draggedId = this.draggedTaskId;
                     if (!draggedId || draggedId === targetTaskId) return;
-                    const draggedIndex = this.tasks.findIndex(t => t.id === draggedId);
+                    
                     const targetIndex = this.tasks.findIndex(t => t.id === targetTaskId);
                     
                     if (this.dragSourceType === 'sidebarTask') {
                         const sidebarTask = this.predefinedTasks.find(t => t.id === draggedId);
                         if (!sidebarTask) return;
+                        
+                        // FIX: Ensure the new task uses the target module's name
                         const newTask = this.createUniqueTaskCopy(sidebarTask, targetTask.category, targetTask.app);
                         this.activeWorkflow.tasks.splice(targetIndex, 0, newTask);
                         this.dragEnd();
                         return;
                     }
-
+                    
+                    // Handle internal task move (Task to Task)
+                    const draggedIndex = this.tasks.findIndex(t => t.id === draggedId);
                     if (draggedIndex === -1 || targetIndex === -1) return;
                     const draggedTask = this.tasks[draggedIndex];
+                    
+                    // Update category and app to match the drop target's module
                     draggedTask.app = targetTask.app;
                     draggedTask.category = targetTask.category;
+                    
                     const [moved] = this.activeWorkflow.tasks.splice(draggedIndex, 1);
                     let insertIndex = targetIndex;
                     if (draggedIndex < targetIndex) insertIndex = targetIndex - 1;
@@ -1643,12 +1769,16 @@
                 },
 
                 isDropTarget(app, category) {
+                    const targetModule = this.getWorkflowModules(category).find(m => m.name === app);
+                    
+                    // Note: This check relies on the HTML drag event logic ensuring that the function calls only occur when both Day Part and Module are enabled.
                     return (
                         this.draggedTaskId &&
                         this.dropTarget.app === app &&
                         this.dropTarget.category === category &&
                         this.dropTarget.hoverTaskId === null &&
-                        this.isDayPartEnabled(category)
+                        this.isDayPartEnabled(category) &&
+                        targetModule.enabled // ADDED CHECK
                     );
                 },
 
@@ -1662,7 +1792,7 @@
                     };
                 },
                 
-                // --- Add Group Logic ---
+                // --- Add Group Logic (Updated for Module Enabled state) ---
                 openAddGroupPopup(section) {
                     if (!this.isDayPartEnabled(section)) return; 
                     this.addTargetSection = section; 
@@ -1697,6 +1827,7 @@
                                     colorClasses: moduleInfo.colorClasses, 
                                     category: section,
                                     customGroup: false, 
+                                    enabled: true, // <-- ADDED
                                 });
 
                                 // B. Find and copy relevant system tasks to the workflow
@@ -1718,6 +1849,7 @@
                                 colorClasses: this.getRandomColorClass(), 
                                 category: section,
                                 customGroup: true,
+                                enabled: true, // <-- ADDED
                             });
                         } else {
                             alert(`A group named "${customName}" already exists in ${section}. Skipping custom group.`);
@@ -1730,10 +1862,14 @@
                     this.addTargetSection = null;
                 },
                 
-                // --- Add Task Logic ---
+                // --- Add Task Logic (Updated for Module Check) ---
                 openAddTaskPopup(module, section) {
                     if (!this.isDayPartEnabled(section)) return; 
                     
+                    // Check if module is enabled before opening popup
+                    const targetModule = this.getWorkflowModules(section).find(m => m.name === module);
+                    if (targetModule && !targetModule.enabled) return; 
+
                     this.addTargetModule = module;
                     this.addTargetSection = section;
                     this.selectedTasksToAdd = [];
@@ -1757,6 +1893,10 @@
                 applyAddedTasks() {
                     if (!this.addTargetModule || !this.addTargetSection || !this.isDayPartEnabled(this.addTargetSection)) return; 
                     
+                    // Re-check module enablement right before applying
+                    const targetModule = this.getWorkflowModules(this.addTargetSection).find(m => m.name === this.addTargetModule);
+                    if (targetModule && !targetModule.enabled) return; 
+
                     this.selectedTasksToAdd.forEach(taskId => {
                         const sourceTask = this.predefinedTasks.find(t => t.id === taskId);
 

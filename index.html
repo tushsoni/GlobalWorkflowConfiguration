@@ -1,737 +1,1785 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic Group & Task Dashboard</title>
-    <!-- Load Tailwind CSS -->
+    <title>Global Workflow Configuration</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <style>
-        /* Custom styles for light theme and focus */
-        .group-row {
-            transition: all 0.2s ease-in-out;
+        :root{
+            --brand-navy: #071a36;
+            --tab-blue: #2563eb;
         }
-        
-        .header-cell {
-            padding: 0.75rem 0.25rem;
-            text-align: center;
-            font-weight: 600;
-            background-color: #f3f4f6;
-            border-bottom: 2px solid #e5e7eb;
-            white-space: nowrap;
-            /* Ensure text is centered horizontally and vertically */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
         }
-        
-        /* Left-align the first few context columns */
-        .header-cell.align-left {
-            text-align: left;
-            padding-left: 1rem;
-            /* Overwrite flex column for left alignment */
-            flex-direction: row;
-            justify-content: flex-start;
-        }
-
-        .data-cell {
-            padding: 0.5rem 0.25rem;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
-            align-items: center;
-            justify-content: center; /* Center content in data cells by default */
-            font-size: 0.875rem; /* text-sm */
-        }
-        
-        .data-cell.align-left {
-            justify-content: flex-start;
-            padding-left: 1rem;
-        }
-        
-        /* Refined 12 column grid layout for better aesthetic balance:
-           Group/Task Name | Enabled | Task IID | Is Mandatory (Task) | Display Order | SoD Act | SoD Man | MD Act | MD Man | EoD Act | EoD Man | Actions
-           
-           Column Widths: 2.5fr Name, 0.7fr Toggle, 0.8fr IID, 0.5fr Mandatory, 0.7fr Order, 6 * 0.5fr for time checkboxes, 0.75fr Actions
-        */
-        .dashboard-grid {
-            grid-template-columns: 2.5fr 0.7fr 0.8fr 0.5fr 0.7fr repeat(6, 0.5fr) 0.75fr;
-            display: grid;
-        }
-
-        /* Styling for the grouped time header */
-        .time-header-group {
-            /* Spans the 6 columns for time configuration (Columns 6-11) */
-            grid-column: 6 / span 6; 
-            background-color: #c7d2fe; /* Indigo 300 */
-            color: #1e3a8a; /* Indigo 900 */
-            padding: 0.5rem 0;
-            text-align: center;
-            font-weight: 700;
-            font-size: 0.875rem; /* text-sm */
-            border-bottom: 2px solid #a5b4fc;
-        }
-        
-        input[type="text"], input[type="number"] {
-            padding: 0.25rem 0.5rem;
-            border: 1px solid #d1d5db;
-            border-radius: 0.375rem;
-            transition: all 0.15s;
-        }
-        input[type="text"]:focus, input[type="number"]:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
-        }
-        
-        /* Class to visually and functionally disable all time slot config fields */
-        .time-slot-disabled {
-            opacity: 0.4;
-            pointer-events: none; /* Disables all mouse events for the cell */
-        }
-        
-        /* Style for mandatory checkboxes */
-        input[type="checkbox"].mandatory-red {
-            accent-color: #dc2626; /* red-600 */
-        }
-        /* Style for active checkboxes */
-        input[type="checkbox"].active-blue {
-            accent-color: #3b82f6; /* blue-600 */
-        }
-
-        /* Modal specific styles */
-        .modal-overlay {
+        .fixed-header {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.75);
-            display: none; /* Initially hidden */
-            z-index: 50; /* Above everything else */
+            right: 0;
+            height: 56px;
+            z-index: 50;
+            background-color: var(--brand-navy);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            color: white;
+        }
+        .fixed-sidebar {
+            position: fixed;
+            top: 56px;
+            left: 0;
+            bottom: 0;
+            width: 56px;
+            background-color: var(--brand-navy);
+            z-index: 40;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .main-layout {
+            padding-top: 56px;
+            padding-left: 56px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Workflow Detail Styles (Compact and Timeline) */
+        .timeline-container { position: relative; padding-left: 36px !important; transition: all 0.3s ease; }
+        .sod-inner.timeline-container.bg-white { padding: 1rem !important; }
+        .timeline-line { position: absolute; left: 18px !important; top: 10px; bottom: 10px; width: 2px !important; background-color: #e2e8f0; z-index: 0; }
+        .section-header { background-color: #234faf; color: white; padding: 6px 10px !important; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-radius: 0.5rem 0.5rem 0 0; min-height: 34px !important;}
+        .section-header h3 { font-size: 0.76rem !important; }
+        /* Greyed out header for disabled Day Part */
+        .disabled-day-part .section-header { background-color: #9ca3af !important; }
+        .disabled-day-part .timeline-line { background-color: #d1d5db !important; }
+
+        /* Task Tile Styles */
+        .task-tile { 
+            width: 70px; min-height: 40px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; position: relative; cursor: pointer; padding: 4px 0; background: transparent !important; border: none !important; box-shadow: none !important; transition: transform .15s ease, opacity .2s ease; 
+        }
+        .task-tile:hover { transform: translateY(-2px); }
+        .task-tile .task-badge { display: none !important; }
+        .task-tile .task-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #d1fae5 !important; color: #059669 !important; }
+
+        .task-tile .task-label { margin-top: 4px; font-size: 0.65rem; font-weight: 600; color: #374151; text-align: center; line-height: 1.1; max-width: 70px; white-space: normal; }
+        .pending .task-icon { background: #fee2e2 !important; color: #ef4444 !important; }
+        .complete .task-icon { background: #d1fae5 !important; color: #059669 !important; }
+        
+        /* Disabled Task Styling */
+        .disabled-day-part .task-tile { 
+            opacity: 0.6;
+            cursor: default;
+            pointer-events: none; /* Disable all interactions */
+        }
+        .disabled-day-part .task-label { color: #6b7280; }
+        
+        /* MANDATORY TASK STYLING */
+        .task-tile.mandatory-card .task-icon {
+            border: 2px solid #f97316;
+        }
+        
+        /* Mandatory Icon Badge */
+        .mandatory-card .mandatory-badge {
+            position: absolute;
+            bottom: -3px; 
+            right: -3px;
+            width: 12px;
+            height: 12px;
+            background-color: #f97316; 
+            color: white;
+            border-radius: 50%;
+            display: flex;
             align-items: center;
             justify-content: center;
-            opacity: 0;
-            transition: opacity 0.3s ease-out;
+            font-size: 0.6rem;
+            font-weight: 700;
+            border: 2px solid white;
+            z-index: 10;
         }
 
-        .modal-content {
+        /* Module Icon Styling */
+        .module-icon-wrapper { padding-left: 0 !important; }
+        .module-icon-wrapper > .absolute { position: absolute; left: -1px !important; top: -1px !important;} 
+        .module-icon-wrapper > .absolute div { width: 34px !important; height: 34px !important; border-radius: 10px !important; }
+        .module-icon-wrapper > .absolute i { width: 16px !important; height: 16px !important; }
+        
+        /* Disabled Module Styling */
+        .disabled-day-part .module-icon-wrapper > .absolute div { 
+            opacity: 0.6;
+            filter: grayscale(100%);
+        }
+        .disabled-day-part h4 { color: #6b7280 !important; }
+
+        .add-task-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #f9fafb;
+            color: #2563eb;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid #d0d7e6;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            transition: all 0.18s ease;
+        }
+
+        .add-task-button:hover {
+            background: #eef4ff;
+            border-color: #b6c8ff;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.08);
+        }
+        
+        /* Disabled Add Task Button */
+        .disabled-day-part .add-task-button,
+        .disabled-day-part .add-group-button {
+            opacity: 0.4;
+            pointer-events: none;
+            cursor: default !important;
+        }
+        
+        /* Custom Context Menu Styling (for right-click menu) */
+        .custom-context-menu {
+            position: fixed; /* Must be fixed for correct positioning */
             background: white;
-            padding: 1.5rem;
-            border-radius: 0.75rem;
-            max-width: 90%;
-            max-height: 90%;
-            overflow: auto;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-            transform: scale(0.9);
-            transition: transform 0.3s ease-out;
-            position: relative;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 4px 0;
+            z-index: 1000;
+            min-width: 180px;
         }
 
-        .modal-overlay.active {
+        .custom-context-menu button {
             display: flex;
-            opacity: 1;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 0.85rem;
+            color: #4b5563;
+            transition: background-color 0.1s;
         }
 
-        .modal-overlay.active .modal-content {
-            transform: scale(1);
+        .custom-context-menu button:hover {
+            background-color: #f3f4f6;
+            color: #1f2937;
         }
 
-        .modal-image {
-            max-width: 100%;
-            height: auto;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        /* Toggle Switch Styling */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 22px;
         }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ef4444; /* Red for Disabled */
+            transition: .4s;
+            border-radius: 22px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #10b981; /* Green for Enabled */
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px #10b981;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(16px);
+        }
+
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-4 md:p-8 font-sans antialiased">
+<body class="bg-gray-50">
 
-    <div class="max-w-7xl mx-auto bg-white shadow-2xl rounded-xl p-6 md:p-8">
-        <h1 class="text-3xl font-extrabold text-gray-900 mb-6 border-b pb-2">Global Workflow Configuration</h1>
+    <div x-data="workflowApp()" x-init="init()" class="min-h-screen">
 
-        <!-- Global Configuration and Preview Button Container -->
-        <!-- ALIGNMENT CORRECTION: Changed md:items-start to md:items-center -->
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-            <!-- Global Time Configuration (Takes up available space) -->
-            <div class="p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex flex-wrap gap-6 items-center shadow-inner flex-grow mb-4 md:mb-0">
-                <p class="font-bold text-indigo-800 flex-shrink-0">Global Time Slots:</p>
-                <div class="flex items-center space-x-2">
-                    <label for="start-of-day-time" class="text-sm text-gray-700 font-medium">Start of Day Time:</label>
-                    <input type="time" id="start-of-day-time" value="13:00" class="p-1 border rounded-md shadow-sm">
-                </div>
-                <div class="flex items-center space-x-2">
-                    <label for="mid-day-time" class="text-sm text-gray-700 font-medium">Mid Day Time:</label>
-                    <input type="time" id="mid-day-time" value="14:00" class="p-1 border rounded-md shadow-sm">
-                </div>
-                <div class="flex items-center space-x-2">
-                    <label for="end-of-day-time" class="text-sm text-gray-700 font-medium">End of Day Time:</label>
-                    <input type="time" id="end-of-day-time" value="20:00" class="p-1 border rounded-md shadow-sm">
+        <header class="fixed-header flex items-center justify-between px-4 no-print">
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
+                    <div class="h-8 w-8 rounded-full border-2 border-white/20 flex items-center justify-center bg-white/10 backdrop-blur-sm">
+                        <i data-lucide="layout-grid" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <span class="text-white font-bold text-lg leading-tight tracking-tight">Global Workflow Configuration</span>
                 </div>
             </div>
-            
-            <!-- Preview Button (Top Right, fixed height alignment) -->
-            <button id="preview-btn" onclick="openImageModal()" class="md:ml-4 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition duration-150 ease-in-out transform hover:scale-[1.005] focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
-                </svg>
-                <!-- RENAMED TEXT -->
-                Preview
-            </button>
-        </div>
-
-
-        <!-- Dashboard Header -->
-        <div class="sticky top-0 bg-white z-10 shadow-md rounded-t-lg border-t border-x text-xs md:text-sm">
-            <!-- Time Slot Group Header -->
-            <div class="dashboard-grid">
-                <!-- Group/Task Name + Enabled + IID + Is Mandatory + Order = 5 columns merged -->
-                <div class="header-cell align-left rounded-tl-lg col-span-5 bg-gray-200 border-r-2 border-white">Task Metadata</div> 
-                
-                <div class="time-header-group">Day Part Configuration</div>
-                <div class="header-cell rounded-tr-lg col-span-1 bg-gray-200 border-l-2 border-white">Actions</div>
+            <div class="flex items-center gap-4">
+                <button class="bg-white/10 backdrop-blur text-white border border-white/20 px-4 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-white/20 transition-all shadow-sm">
+                    <i data-lucide="store" class="w-4 h-4"></i>
+                    Site: 99999
+                </button>
             </div>
-            
-            <!-- Detailed Column Header - REORDERED -->
-            <div class="dashboard-grid bg-gray-100">
-                <div class="header-cell align-left font-bold text-gray-800">Group/Task Name</div>
-                <div class="header-cell font-bold text-gray-800">Enabled</div> <!-- NEW POS 2 -->
-                <div class="header-cell font-bold text-gray-800">Task IID</div> <!-- NEW POS 3 -->
-                <div class="header-cell font-bold text-gray-800">Is Mandatory</div>
-                <div class="header-cell font-bold text-gray-800">Order</div>
-                
-                <!-- Start of Day Time (Active before Mandatory) -->
-                <div class="header-cell text-center text-indigo-700 border-r border-indigo-200">SoD<div class="text-[0.6rem] font-medium mt-0.5">Active</div></div>
-                <div class="header-cell text-center text-indigo-700">SoD<div class="text-[0.6rem] font-medium mt-0.5">Mandatory</div></div>
+        </header>
 
-                <!-- Mid Day Time (Active before Mandatory) -->
-                <div class="header-cell text-center text-indigo-700 border-l border-r border-indigo-200 bg-indigo-100">MD<div class="text-[0.6rem] font-medium mt-0.5">Active</div></div>
-                <div class="header-cell text-center text-indigo-700 bg-indigo-100">MD<div class="text-[0.6rem] font-medium mt-0.5">Mandatory</div></div>
-
-                <!-- End of Day Time (Active before Mandatory) -->
-                <div class="header-cell text-center text-indigo-700 border-l border-r border-indigo-200">EoD<div class="text-[0.6rem] font-medium mt-0.5">Active</div></div>
-                <div class="header-cell text-center text-indigo-700">EoD<div class="text-[0.6rem] font-medium mt-0.5">Mandatory</div></div>
-
-                <div class="header-cell text-center font-bold text-gray-800">Actions</div>
+        <aside class="fixed-sidebar no-print">
+            <div class="flex flex-col gap-4 w-full items-center pt-4">
+                <button class="p-2 bg-white/10 text-white rounded-xl shadow-lg border border-white/10 hover:bg-white/20 transition-all">
+                    <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                </button>
+                <div class="w-8 h-0.5 bg-white/10 rounded-full my-2"></div>
+                <button class="p-2 text-white/60 hover:text-white transition-colors" @click="currentView = 'summary'">
+                    <i data-lucide="layout-grid" class="w-5 h-5"></i>
+                </button>
+                <button x-show="currentView === 'detail'" @click="sidebarOpen = true" class="p-2 text-white/60 hover:text-white transition-colors">
+                    <i data-lucide="list-checks" class="w-5 h-5"></i>
+                </button>
             </div>
-        </div>
+        </aside>
 
-        <!-- Dashboard Body Container -->
-        <div id="dashboard-container" class="border-x border-b rounded-b-lg divide-y divide-gray-200">
-            <!-- Dynamic content will be rendered here -->
-        </div>
-        
-        <!-- Add Group Button -->
-        <div class="mt-6">
-            <button id="add-group-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-150 ease-in-out transform hover:scale-[1.005] focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50">
-                + Add New Group
-            </button>
-        </div>
-    </div>
-
-    <!-- Image Preview Modal -->
-    <div id="image-modal" class="modal-overlay">
-        <div class="modal-content relative">
-            <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Preview Workflow</h2>
-            
-            <!-- Placeholder Image: Using a generic diagram placeholder -->
-            <img id="preview-image" 
-                src="previewworkflow.png"
-                alt="Workflow Diagram Preview" 
-                class="modal-image"
-                onerror="this.onerror=null; this.src='https://placehold.co/800x600/f87171/ffffff?text=Image+Load+Failed';"
-            />
-
-            <!-- Close Button -->
-            <button onclick="closeImageModal()" 
-                    class="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-700 transition duration-150 shadow-md" 
-                    title="Close Preview">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-        </div>
-    </div>
-
-
-    <script>
-        // Use a simple, global state object to manage the dashboard data, initialized from CSV.
-        let dashboardState = [
-            {
-                id: crypto.randomUUID(),
-                name: "Shift Manager's Tasks",
-                isEnabled: true,
-                enableSoD: true, // NEW
-                enableMD: true, // NEW
-                enableEoD: true, // NEW
-                tasks: [
-                    { id: crypto.randomUUID(), iid: "Rev_Forecast", name: "Review Forecast", order: 1, isTaskMandatory: true,
-                        startOfDay: { isMandatory: true, isActive: true }, 
-                        midDay: { isMandatory: true, isActive: true }, 
-                        endOfDay: { isMandatory: true, isActive: true } 
-                    },
-                    { id: crypto.randomUUID(), iid: "Act_Sales", name: "Actual Sales", order: 2, isTaskMandatory: false,
-                        startOfDay: { isMandatory: false, isActive: false }, 
-                        midDay: { isMandatory: false, isActive: false }, 
-                        endOfDay: { isMandatory: false, isActive: false } 
-                    },
-                ]
-            },
-            {
-                id: crypto.randomUUID(),
-                name: "Food Management",
-                isEnabled: true,
-                enableSoD: true, // NEW
-                enableMD: true, // NEW
-                enableEoD: true, // NEW
-                tasks: [
-                    { id: crypto.randomUUID(), iid: "Ordering", name: "Ordering", order: 1, isTaskMandatory: false,
-                        startOfDay: { isMandatory: false, isActive: false }, 
-                        midDay: { isMandatory: false, isActive: true }, 
-                        endOfDay: { isMandatory: false, isActive: false } 
-                    },
-                    { id: crypto.randomUUID(), iid: "Receiving", name: "Receiving", order: 2, isTaskMandatory: false,
-                        startOfDay: { isMandatory: false, isActive: false }, 
-                        midDay: { isMandatory: false, isActive: true }, 
-                        endOfDay: { isMandatory: false, isActive: false } 
-                    },
-                    { id: crypto.randomUUID(), iid: "Transfer", name: "Transfer", order: 3, isTaskMandatory: false,
-                        startOfDay: { isMandatory: false, isActive: false }, 
-                        midDay: { isMandatory: false, isActive: false }, 
-                        endOfDay: { isMandatory: false, isActive: true } 
-                    },
-                    { id: crypto.randomUUID(), iid: "Waste", name: "Waste", order: 4, isTaskMandatory: false,
-                        startOfDay: { isMandatory: false, isActive: false }, 
-                        midDay: { isMandatory: false, isActive: false }, 
-                        endOfDay: { isMandatory: false, isActive: false } 
-                    },
-                ]
-            },
-            {
-                id: crypto.randomUUID(),
-                name: "Labor Management",
-                isEnabled: true,
-                enableSoD: true, // NEW
-                enableMD: true, // NEW
-                enableEoD: true, // NEW
-                tasks: [
-                    { id: crypto.randomUUID(), iid: "Schedule", name: "Schedule", order: 1, isTaskMandatory: true,
-                        startOfDay: { isMandatory: true, isActive: true }, 
-                        midDay: { isMandatory: false, isActive: false }, 
-                        endOfDay: { isMandatory: false, isActive: false } 
-                    },
-                    { id: crypto.randomUUID(), iid: "Pend_Emp", name: "Pending Employees", order: 2, isTaskMandatory: false,
-                        startOfDay: { isMandatory: false, isActive: false }, 
-                        midDay: { isMandatory: false, isActive: true }, 
-                        endOfDay: { isMandatory: false, isActive: false } 
-                    },
-                    { id: crypto.randomUUID(), iid: "Violation", name: "Violation", order: 3, isTaskMandatory: false,
-                        startOfDay: { isMandatory: false, isActive: false }, 
-                        midDay: { isMandatory: false, isActive: true }, 
-                        endOfDay: { isMandatory: false, isActive: false } 
-                    },
-                    { id: crypto.randomUUID(), iid: "Time_Loss_Sum", name: "Time Loss Summary", order: 4, isTaskMandatory: false,
-                        startOfDay: { isMandatory: false, isActive: false }, 
-                        midDay: { isMandatory: false, isActive: true }, 
-                        endOfDay: { isMandatory: false, isActive: false } 
-                    },
-                ]
-            },
-            {
-                id: crypto.randomUUID(),
-                name: "Payroll Management",
-                isEnabled: true,
-                enableSoD: true, // NEW
-                enableMD: true, // NEW
-                enableEoD: true, // NEW
-                tasks: [
-                    { id: crypto.randomUUID(), iid: "Punch_Exception", name: "Punch Exception", order: 1, isTaskMandatory: false,
-                        startOfDay: { isMandatory: false, isActive: false }, 
-                        midDay: { isMandatory: false, isActive: false }, 
-                        endOfDay: { isMandatory: false, isActive: true } 
-                    },
-                    { id: crypto.randomUUID(), iid: "Review_Punches", name: "Review Punches", order: 2, isTaskMandatory: true,
-                        startOfDay: { isMandatory: true, isActive: true }, 
-                        midDay: { isMandatory: true, isActive: true }, 
-                        endOfDay: { isMandatory: true, isActive: true } 
-                    },
-                    { id: crypto.randomUUID(), iid: "Misc_Pay", name: "Misc Pay", order: 3, isTaskMandatory: true,
-                        startOfDay: { isMandatory: true, isActive: true }, 
-                        midDay: { isMandatory: true, isActive: true }, 
-                        endOfDay: { isMandatory: true, isActive: true } 
-                    },
-                ]
-            }
-        ];
-
-        const container = document.getElementById('dashboard-container');
-        const addGroupBtn = document.getElementById('add-group-btn');
-
-        // Helper function for the custom group enable/disable toggle switch HTML
-        const getToggleHtml = (groupId, isEnabled) => `
-            <label class="relative inline-flex items-center cursor-pointer">
-                <input 
-                    type="checkbox" 
-                    value="${groupId}" 
-                    class="sr-only peer" 
-                    ${isEnabled ? 'checked' : ''}
-                    onchange="handleGroupToggle(this.value, this.checked)"
-                >
-                <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
-            </label>
-        `;
-
-        // Helper function for the new time slot group toggles (FIXED FOR NO OVERLAP)
-        const getTimeToggleHtml = (groupId, slot, isEnabled) => `
-            <!-- Flex container to hold label and toggle, preventing overlap -->
-            <div class="flex flex-col items-center justify-center space-y-1">
-                <span class="text-xs font-semibold text-gray-700 whitespace-nowrap">Enable ${slot}</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input 
-                        type="checkbox" 
-                        class="sr-only peer" 
-                        ${isEnabled ? 'checked' : ''}
-                        onchange="handleTimeSlotToggle('${groupId}', '${slot}', this.checked)"
-                    >
-                    <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 shadow-inner"></div>
-                </label>
-            </div>
-        `;
-        
-        // Find a group by ID
-        const findGroup = (groupId) => dashboardState.find(g => g.id === groupId);
-
-        // Find a task by ID within a group
-        const findTask = (groupId, taskId) => {
-            const group = findGroup(groupId);
-            return group ? group.tasks.find(t => t.id === taskId) : null;
-        };
-
-        // Function to update a group property
-        window.updateGroupProperty = (groupId, key, value) => {
-            const group = findGroup(groupId);
-            if (group) {
-                group[key] = value;
-                if (key === 'name') {
-                    renderDashboard(); 
-                }
-            }
-        };
-
-        // Function to handle the group Enable/Disable toggle (main)
-        window.handleGroupToggle = (groupId, isChecked) => {
-            const group = findGroup(groupId);
-            if (group) {
-                group.isEnabled = isChecked;
-                // Re-render to apply disabling/greying out to all time configuration checkboxes
-                renderDashboard();
-            }
-        };
-
-        // Function to handle the new time slot group toggles (SoD, MD, EoD)
-        window.handleTimeSlotToggle = (groupId, slot, isChecked) => {
-            const group = findGroup(groupId);
-            if (group) {
-                let key;
-                if (slot === 'SoD') key = 'enableSoD';
-                else if (slot === 'MD') key = 'enableMD';
-                else if (slot === 'EoD') key = 'enableEoD';
-
-                if (key) {
-                    group[key] = isChecked;
-                    renderDashboard();
-                }
-            }
-        };
-
-        // Function to update a nested task property (e.g., 'startOfDay', 'isMandatory', true)
-        window.updateTaskTimeProperty = (groupId, taskId, timeSlot, key, value) => {
-            const task = findTask(groupId, taskId);
-            if (task && task[timeSlot]) {
-                task[timeSlot][key] = value;
-            }
-        };
-
-        // Function to update task order/name/iid/isTaskMandatory
-        window.updateTaskProperty = (groupId, taskId, key, value) => {
-            const task = findTask(groupId, taskId);
-            if (task) {
-                if (key === 'order') {
-                    task[key] = parseInt(value);
-                    renderDashboard();
-                } else if (key === 'isTaskMandatory') {
-                    task[key] = value;
-                } else {
-                    task[key] = value;
-                }
-            }
-        };
-        
-        // Function to delete a task
-        window.deleteTask = (groupId, taskId) => {
-            const group = findGroup(groupId);
-            if (group) {
-                group.tasks = group.tasks.filter(t => t.id !== taskId);
-                renderDashboard();
-            }
-        };
-
-
-        // Function to add a new task to a specific group
-        window.addTask = (groupId) => {
-            const group = findGroup(groupId);
-            if (group) {
-                const newOrder = group.tasks.length > 0 ? Math.max(...group.tasks.map(t => t.order)) + 1 : 1;
-                group.tasks.push({
-                    id: crypto.randomUUID(),
-                    iid: "NEW_IID",
-                    name: "New Task Description (Click to edit)",
-                    order: newOrder,
-                    isTaskMandatory: false, // Default for new tasks
-                    startOfDay: { isMandatory: false, isActive: false }, 
-                    midDay: { isMandatory: false, isActive: false }, 
-                    endOfDay: { isMandatory: false, isActive: false }
-                });
-                renderDashboard();
-            }
-        };
-
-        // Function to add a new group
-        const addGroup = () => {
-            dashboardState.push({
-                id: crypto.randomUUID(),
-                name: "New Group (Click to edit)",
-                isEnabled: true,
-                enableSoD: true, 
-                enableMD: true, 
-                enableEoD: true, 
-                tasks: [] // Starts with no tasks
-            });
-            renderDashboard(); 
-        };
-
-        // Modal functions
-        window.openImageModal = () => {
-            const modal = document.getElementById('image-modal');
-            modal.classList.add('active');
-        };
-
-        window.closeImageModal = () => {
-            const modal = document.getElementById('image-modal');
-            modal.classList.remove('active');
-        };
-
-        // Renders the entire dashboard based on the current state
-        function renderDashboard() {
-            container.innerHTML = ''; // Clear existing content
-
-            dashboardState.forEach(group => {
-                const groupIsDisabled = !group.isEnabled;
+        <div class="main-layout">
+            <div class="flex-1 px-8 pb-16 w-full max-w-[1600px] mx-auto pt-6">
                 
-                // --- 1. Render Group Row (Header/Controls) ---
-                const groupDiv = document.createElement('div');
-                groupDiv.className = `dashboard-grid group-row font-medium text-gray-800 transition-all duration-200`;
-                groupDiv.innerHTML = `
-                    <!-- Group Name (Column 1) - Always editable -->
-                    <div class="data-cell align-left bg-gray-50 flex items-center space-x-2 border-b border-gray-200">
-                        <svg class="w-4 h-4 text-indigo-500 min-w-[1rem]" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-7-8a7 7 0 1114 0 7 7 0 01-14 0z" clip-rule="evenodd"></path><path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path></svg>
-                        <input
-                            type="text"
-                            value="${group.name}"
-                            class="w-full font-bold bg-transparent border-none p-0 text-base focus:ring-0"
-                            placeholder="Enter Group Name"
-                            onchange="updateGroupProperty('${group.id}', 'name', this.value)"
-                        />
-                    </div>
-                    
-                    <!-- Enable/Disable (Column 2) - Moved to be next to the name -->
-                    <div class="data-cell bg-gray-50 flex items-center justify-center border-b border-gray-200">
-                        ${getToggleHtml(group.id, group.isEnabled)}
-                    </div> 
+                <div x-show="contextMenuOpen" 
+                     @click.outside="closeContextMenu()"
+                     x-transition.opacity
+                     class="custom-context-menu no-print"
+                     :style="`top: ${contextMenuY}px; left: ${contextMenuX}px;`">
 
-                    <!-- Blank Cells for Group Row (Columns 3-12 merged) -->
-                    <div class="data-cell bg-gray-50 col-span-10 border-b border-gray-200"></div> 
-                `;
-                container.appendChild(groupDiv); // Append the group header
-                
-                // --- 1.1. Render Time Slot Group Toggles (NEW ROW) ---
-                const timeToggleDiv = document.createElement('div');
-                timeToggleDiv.className = `dashboard-grid bg-gray-200 border-b border-gray-300`; 
-                timeToggleDiv.innerHTML = `
-                    <!-- Spacer for Task Metadata columns (Columns 1-5) -->
-                    <div class="data-cell col-span-5 bg-gray-200 py-2"></div> 
-                    
-                    <!-- SoD Toggle (Columns 6 & 7) -->
-                    <div class="data-cell col-span-2 bg-indigo-50 flex justify-center py-2 border-r border-gray-300">
-                        ${getTimeToggleHtml(group.id, 'SoD', group.enableSoD)}
-                    </div>
-                    
-                    <!-- MD Toggle (Columns 8 & 9) -->
-                    <div class="data-cell col-span-2 bg-indigo-100 flex justify-center py-2 border-r border-gray-300">
-                        ${getTimeToggleHtml(group.id, 'MD', group.enableMD)}
-                    </div>
-                    
-                    <!-- EoD Toggle (Columns 10 & 11) -->
-                    <div class="data-cell col-span-2 bg-indigo-50 flex justify-center py-2">
-                        ${getTimeToggleHtml(group.id, 'EoD', group.enableEoD)}
-                    </div>
+                    <template x-if="contextMenuTargetTask">
+                        <div>
+                            <button @click="toggleMandatory(contextMenuTargetTask.id)">
+                                <i :data-lucide="contextMenuTargetTask.mandatory ? 'star-off' : 'star'" class="w-4 h-4 text-orange-600"></i>
+                                <span x-text="contextMenuTargetTask.mandatory ? 'Unmark as Mandatory' : 'Mark as Mandatory'"></span>
+                            </button>
 
-                    <!-- Spacer for Actions column (Column 12) -->
-                    <div class="data-cell col-span-1 bg-gray-200 py-2"></div>
-                `;
-                container.appendChild(timeToggleDiv);
+                            <hr class="my-1 border-gray-100">
 
-                // --- 2. Render Task Rows ---
-                group.tasks.sort((a, b) => a.order - b.order).forEach(task => {
-                    const taskDiv = document.createElement('div');
-                    taskDiv.className = `dashboard-grid task-row text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-100`; 
-
-                    // Check if group is disabled (main) OR if the specific time slot is disabled
-                    const groupIsCompletelyDisabled = groupIsDisabled;
-                    const isSoDEnabled = group.enableSoD;
-                    const isMDEnabled = group.enableMD;
-                    const isEoDEnabled = group.enableEoD;
-
-                    const soDDisabledClass = !isSoDEnabled || groupIsCompletelyDisabled ? 'time-slot-disabled' : ''; 
-                    const soDInputDisabledAttr = !isSoDEnabled || groupIsCompletelyDisabled ? 'disabled' : '';
-
-                    const mDDisabledClass = !isMDEnabled || groupIsCompletelyDisabled ? 'time-slot-disabled' : ''; 
-                    const mDInputDisabledAttr = !isMDEnabled || groupIsCompletelyDisabled ? 'disabled' : '';
-
-                    const eoDDisabledClass = !isEoDEnabled || groupIsCompletelyDisabled ? 'time-slot-disabled' : ''; 
-                    const eoDInputDisabledAttr = !isEoDEnabled || groupIsCompletelyDisabled ? 'disabled' : '';
-                    
-                    const renderCheckbox = (slot, key, isChecked, isMandatory, isDisabledClass, isDisabledAttr) => {
-                        // Background colors match the column group colors
-                        const bgClass = slot === 'midDay' ? 'bg-indigo-100/50' : 'bg-white';
-                        const checkClass = isMandatory ? 'mandatory-red' : 'active-blue';
-                        const titleText = `${slot} ${key === 'isMandatory' ? 'Mandatory' : 'Active'}`;
-                        
-                        return `
-                        <!-- Apply disable class to the parent cell for visual grey-out and pointer-events block -->
-                        <div class="data-cell ${bgClass} ${isDisabledClass}"> 
-                            <input
-                                type="checkbox"
-                                ${isChecked ? 'checked' : ''}
-                                class="h-4 w-4 rounded shadow-sm ${checkClass}"
-                                onchange="updateTaskTimeProperty('${group.id}', '${task.id}', '${slot}', '${key}', this.checked)"
-                                ${isDisabledAttr} 
-                                title="${titleText}"
-                            >
-                        </div>
-                        `;
-                    };
-
-                    const taskRowHtml = `
-                        <!-- Task Name (Description) (Column 1) -->
-                        <div class="data-cell align-left flex items-center space-x-2 pl-6 bg-white">
-                            <input
-                                type="text"
-                                value="${task.name}"
-                                class="w-full text-sm py-1 focus:border-blue-400 focus:shadow-sm bg-transparent"
-                                placeholder="Task Description"
-                                onchange="updateTaskProperty('${group.id}', '${task.id}', 'name', this.value)"
-                            />
-                        </div>
-
-                        <!-- Enable/Disable (Column 2) - Blank for Task Row -->
-                        <div class="data-cell bg-white"></div>
-
-                        <!-- Task IID (Column 3) -->
-                        <div class="data-cell bg-white">
-                            <input
-                                type="text"
-                                value="${task.iid}"
-                                class="w-20 text-center text-xs py-1 font-mono uppercase focus:border-blue-400 focus:shadow-sm"
-                                placeholder="IID"
-                                onchange="updateTaskProperty('${group.id}', '${task.id}', 'iid', this.value)"
-                            />
-                        </div>
-                        
-                        <!-- Task Mandatory (Column 4) -->
-                        <div class="data-cell bg-white">
-                            <input
-                                type="checkbox"
-                                ${task.isTaskMandatory ? 'checked' : ''}
-                                class="h-4 w-4 rounded shadow-sm mandatory-red"
-                                onchange="updateTaskProperty('${group.id}', '${task.id}', 'isTaskMandatory', this.checked)"
-                                title="Overall Task Mandatory"
-                            />
-                        </div>
-                        
-                        <!-- Display Order (Column 5) -->
-                        <div class="data-cell bg-white">
-                            <input
-                                type="number"
-                                min="1"
-                                value="${task.order}"
-                                class="w-16 text-center text-sm focus:border-blue-400 focus:shadow-sm"
-                                onchange="updateTaskProperty('${group.id}', '${task.id}', 'order', this.value);"
-                            />
-                        </div>
-
-                        <!-- Time Slot Configuration (Columns 6-11) - Active before Mandatory -->
-                        ${renderCheckbox('startOfDay', 'isActive', task.startOfDay.isActive, false, soDDisabledClass, soDInputDisabledAttr)}
-                        ${renderCheckbox('startOfDay', 'isMandatory', task.startOfDay.isMandatory, true, soDDisabledClass, soDInputDisabledAttr)}
-                        ${renderCheckbox('midDay', 'isActive', task.midDay.isActive, false, mDDisabledClass, mDInputDisabledAttr)}
-                        ${renderCheckbox('midDay', 'isMandatory', task.midDay.isMandatory, true, mDDisabledClass, mDInputDisabledAttr)}
-                        ${renderCheckbox('endOfDay', 'isActive', task.endOfDay.isActive, false, eoDDisabledClass, eoDInputDisabledAttr)}
-                        ${renderCheckbox('endOfDay', 'isMandatory', task.endOfDay.isMandatory, true, eoDDisabledClass, eoDInputDisabledAttr)}
-
-                        <!-- Delete Button (Column 12) -->
-                        <div class="data-cell bg-white">
-                            <button 
-                                onclick="deleteTask('${group.id}', '${task.id}')" 
-                                class="p-1 rounded-full text-red-500 hover:bg-red-100 transition duration-150"
-                                title="Delete Task"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                </svg>
+                            <button @click="removeTask(contextMenuTargetTask.id)">
+                                <i data-lucide="trash-2" class="w-4 h-4 text-red-600"></i>
+                                <span>Remove Task</span>
                             </button>
                         </div>
-                    `;
-                    taskDiv.innerHTML = taskRowHtml;
-                    container.appendChild(taskDiv);
-                });
-
-                // --- 3. Render Add Task Button ---
-                const addTaskDiv = document.createElement('div');
-                // The Add Task button spans the full width of the grid (12 columns)
-                addTaskDiv.className = `dashboard-grid bg-gray-50 hover:bg-gray-100 transition duration-150 border-t border-b border-dashed border-gray-300`;
-                addTaskDiv.innerHTML = `
-                    <div class="data-cell col-span-12 flex items-center justify-center py-2">
-                        <button 
-                            class="text-indigo-600 hover:text-indigo-800 font-semibold text-sm px-4 py-1 rounded-full border border-indigo-400 hover:border-indigo-600 transition duration-150"
-                            onclick="addTask('${group.id}')"
-                        >
-                            + Add Task to ${group.name}
-                        </button>
+                    </template>
+                </div>
+                <div x-show="currentView === 'summary'">
+                    <div class="bg-white rounded-lg shadow-xl overflow-hidden">
+                        <table class="summary-table w-full border-collapse">
+                            <thead>
+                                <tr>
+                                    <th class="w-3/4 p-3 bg-gray-100 text-gray-600 font-semibold text-sm">Workflow Template</th>
+                                    <th class="w-1/4 p-3 bg-gray-100 text-gray-600 font-semibold text-sm">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="p-3 border-b border-gray-200">
+                                        <div class="flex items-center gap-3">
+                                            <a href="#" @click.prevent="editWorkflow('wf-global')" class="text-blue-600 font-medium hover:underline">Global Workflow Configuration</a>
+                                        </div>
+                                    </td>
+                                    <td class="p-3 border-b border-gray-200">
+                                        <span class="text-sm font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Active</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                `;
-                container.appendChild(addTaskDiv);
+                </div>
 
-            });
-        }
+                <div x-show="currentView === 'detail'" class="pt-4">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                            <button @click="currentView = 'summary'" class="p-1 rounded-full text-gray-400 hover:text-blue-600 hover:bg-gray-100 transition">
+                                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                            </button>
+                            Global Workflow Configuration
+                        </h2>
+                        
+                        <div class="flex items-center gap-3">
+                            <button x-show="!sidebarOpen" @click="sidebarOpen = true" 
+                                class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg hover:shadow-md transition-all active:scale-95">
+                                <i data-lucide="list-checks" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div x-show="activeWorkflow">
+                        <div class="border-b border-gray-200">
+                            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                                <button @click="activeTab = 'editor'" :class="activeTab === 'editor' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                                    class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
+                                    Global Configuration Editor
+                                </button>
+                            </nav>
+                        </div>
+                        
+                        <div x-show="activeTab === 'editor'" class="pt-4">
+                            <h3 class="text-xl font-semibold text-blue-600 mb-6 flex items-center gap-2">
+                                Template:
+                                <span 
+                                    x-text="activeWorkflow.name" 
+                                    class="cursor-default text-gray-800"
+                                ></span>
+                            </h3>
 
-        // Event Listener for Add Group Button
-        addGroupBtn.addEventListener('click', addGroup);
+                        <div x-show="!hideStartOfDay"
+                            class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8"
+                            :class="{'disabled-day-part': !isDayPartEnabled('Start of Day')}">
+                            <div class="section-header !py-2 !px-4" @click="toggleDayPart('Start of Day')">
+                                <div class="flex items-center gap-3">
+                                    <div class="bg-white/10 p-1 rounded-md">
+                                        <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-300" :class="isDayPartExpanded('Start of Day') ? 'rotate-180' : 'rotate-0'"></i>
+                                    </div>
+                                    <h3 class="text-sm font-semibold flex items-center gap-2">
+                                        Start of Day
+                                        <span class="text-xs font-normal text-white/80 italic" x-text="'(' + getTimeSlot('Start of Day') + ')'"></span>
+                                    </h3>
+                                </div>
 
-        // Initial render on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            renderDashboard();
+                                <div class="flex items-center gap-3">
+                                    <button @click.stop="openDayPartTimeSlotPopup('Start of Day')"
+                                        class="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition" title="Set Time Slot">
+                                        <i data-lucide="clock" class="w-4 h-4"></i>
+                                    </button>
+                                    
+                                    <label class="toggle-switch" @click.stop>
+                                        <input type="checkbox" x-model="getDayPart('Start of Day').enabled">
+                                        <span class="slider"></span>
+                                    </label>
+                                    
+                                    <button @click.stop="removeDayPart('Start of Day')" 
+                                        class="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition" title="Hide Day Part">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
 
-            // Allow closing modal by clicking outside
-            const modal = document.getElementById('image-modal');
-            if (modal) {
-                modal.addEventListener('click', (e) => {
-                    // Check if the click occurred directly on the overlay, not the content
-                    if (e.target.id === 'image-modal') {
-                        closeImageModal();
+                            <div x-show="isDayPartExpanded('Start of Day')" x-collapse class="p-4 sod-inner timeline-container bg-white">
+                                <div class="timeline-line"></div>
+                                
+                                <template x-for="module in getWorkflowModules('Start of Day')" :key="module.name">
+                                    <div class="relative mb-4 module-icon-wrapper" x-show="hasVisibleTasks(module.name, 'Start of Day') || (module.customGroup && isDayPartEnabled('Start of Day'))">
+                                        <div class="absolute left-0 top-2">
+                                            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ring-4 ring-white"
+                                                :class="module.colorClasses">
+                                                <i :data-lucide="module.icon" class="w-5 h-5"></i>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex flex-col gap-2 pl-11">
+                                            <div class="flex items-center gap-4">
+                                                <h4 class="text-sm font-bold text-gray-900" 
+                                                    :contenteditable="module.customGroup && isDayPartEnabled('Start of Day')"
+                                                    @blur="if(module.customGroup && isDayPartEnabled('Start of Day')) updateModuleName(module, $event.target.textContent.trim())"
+                                                    x-text="module.name"></h4>
+
+                                                <div class="flex flex-wrap gap-2 p-1 rounded-lg transition-all min-h-[40px] flex-1"
+                                                    @dragover.prevent="if(isDayPartEnabled('Start of Day')) dragOverModule($event, module.name, 'Start of Day')"
+                                                    @dragenter.prevent="if(isDayPartEnabled('Start of Day')) dragEnterModule($event, module.name, 'Start of Day')"
+                                                    @dragleave.prevent="if(isDayPartEnabled('Start of Day')) dragLeaveModule($event, module.name, 'Start of Day')"
+                                                    @drop.prevent="if(isDayPartEnabled('Start of Day')) dropToModule($event, module.name, 'Start of Day')"
+                                                    :class="{ 'module-drop-target': isDropTarget(module.name, 'Start of Day') }">
+
+                                                    <template x-for="task in getModuleTasks(module.name, 'Start of Day')" :key="task.id">
+                                                        <div x-show="!task.hidden"
+                                                            :class="getTaskCardClass(task, activeTaskId, draggedTaskId)"
+                                                            class="task-tile"
+                                                            :draggable="isDayPartEnabled('Start of Day')"
+                                                            @dragstart="if (isDayPartEnabled('Start of Day')) dragStart($event, task.id, 'task')"
+                                                            @dragend="if (isDayPartEnabled('Start of Day')) dragEnd($event)"
+                                                            @dragover.prevent.stop="if (isDayPartEnabled('Start of Day')) dragOverTask($event, task.id)"
+                                                            @dragleave.prevent.stop="if (isDayPartEnabled('Start of Day')) dragLeaveTask($event, task.id)"
+                                                            @drop.prevent.stop="if (isDayPartEnabled('Start of Day')) dropOnTask($event, task.id)"
+                                                            @click="openTaskPopup(task)"
+                                                            @contextmenu.prevent="if (isDayPartEnabled('Start of Day')) openContextMenu($event, task)"
+                                                            x-init="$nextTick(() => lucide.createIcons())">
+                                                            
+                                                            <div x-show="false" class="task-badge" x-text="task.badge"></div>
+                                                            <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
+                                                                <i :data-lucide="task.icon" class="w-5 h-5"></i>
+                                                            </div>
+                                                            
+                                                            <i x-show="task.mandatory" data-lucide="alert-circle" class="mandatory-badge w-3 h-3 text-white"></i>
+
+                                                            <span class="task-label" x-text="task.name"></span>
+                                                        </div>
+                                                    </template>
+
+                                                    <div 
+                                                        x-show="isDayPartEnabled('Start of Day')"
+                                                        class="flex items-center justify-center cursor-pointer mt-1"
+                                                        @click="openAddTaskPopup(module.name, 'Start of Day')"
+                                                    >
+                                                        <div class="w-8 h-8 rounded-full bg-blue-100 border border-blue-300 text-blue-600 flex items-center justify-center shadow-sm hover:bg-blue-200 hover:scale-105 transition">
+                                                            <span class="text-xl leading-none font-bold">+</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                                
+                                <div x-show="isDayPartEnabled('Start of Day')" class="flex justify-start pl-11 mt-4">
+                                    <button @click="openAddGroupPopup('Start of Day')"
+                                        class="add-task-button !bg-blue-600 !text-white !border-blue-700 hover:!bg-blue-700 add-group-button"
+                                    >
+                                        <i data-lucide="folder-plus" class="w-4 h-4"></i>
+                                        Add Task Group
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-center my-6">
+                            <button @click="openAddDayPartPopup()"
+                                class="px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg flex items-center justify-center mx-auto transition-all">
+                                <i data-lucide="plus-circle" class="w-5 h-5 mr-2"></i>
+                                Add Workflow Day Part
+                            </button>
+                        </div>
+
+                        <template x-for="(dayPart, index) in activeWorkflow.customDayParts" :key="dayPart.name + index">
+                            <div 
+                                class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8"
+                                :class="{'disabled-day-part': !isDayPartEnabled(dayPart.name)}">
+                                <div class="section-header !py-2 !px-4" @click="toggleDayPart(dayPart.name)">
+                                    <div class="flex items-center gap-3">
+                                        <div class="bg-white/10 p-1 rounded-md">
+                                            <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-300" :class="isDayPartExpanded(dayPart.name) ? 'rotate-180' : 'rotate-0'"></i>
+                                        </div>
+                                        <h3 class="text-sm font-semibold flex items-center gap-2">
+                                            <span x-text="dayPart.name"></span>
+                                            <span class="text-xs font-normal text-white/80 italic" x-text="'(' + getTimeSlot(dayPart.name) + ')'"></span>
+                                        </h3>
+                                    </div>
+
+                                    <div class="flex items-center gap-3">
+                                        <button @click.stop="openDayPartTimeSlotPopup(dayPart.name)"
+                                            class="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition" title="Set Time Slot">
+                                            <i data-lucide="clock" class="w-4 h-4"></i>
+                                        </button>
+                                        
+                                        <label class="toggle-switch" @click.stop>
+                                            <input type="checkbox" x-model="dayPart.enabled">
+                                            <span class="slider"></span>
+                                        </label>
+                                        
+                                        <button @click.stop="removeDayPart(dayPart.name)" 
+                                            class="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition" title="Delete Day Part">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div x-show="isDayPartExpanded(dayPart.name)" x-collapse class="p-4 timeline-container bg-white">
+                                    <div class="timeline-line"></div>
+
+                                    <template x-for="module in getWorkflowModules(dayPart.name)" :key="module.name">
+                                        <div class="relative mb-4 module-icon-wrapper" x-show="hasVisibleTasks(module.name, dayPart.name) || (module.customGroup && isDayPartEnabled(dayPart.name))">
+                                            <div class="absolute left-0 top-2">
+                                                <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ring-4 ring-white"
+                                                    :class="module.colorClasses">
+                                                    <i :data-lucide="module.icon" class="w-5 h-5"></i>
+                                                </div>
+                                            </div>
+
+                                            <div class="flex flex-col gap-2 pl-11">
+                                                <div class="flex items-center gap-4">
+                                                    <h4 class="text-sm font-bold text-gray-900" 
+                                                        :contenteditable="module.customGroup && isDayPartEnabled(dayPart.name)"
+                                                        @blur="if(module.customGroup && isDayPartEnabled(dayPart.name)) updateModuleName(module, $event.target.textContent.trim())"
+                                                        x-text="module.name"></h4>
+
+                                                    <div class="flex flex-wrap gap-2 p-1 rounded-lg transition-all min-h-[40px] flex-1"
+                                                        @dragover.prevent="if(isDayPartEnabled(dayPart.name)) dragOverModule($event, module.name, dayPart.name)"
+                                                        @dragenter.prevent="if(isDayPartEnabled(dayPart.name)) dragEnterModule($event, module.name, dayPart.name)"
+                                                        @dragleave.prevent="if(isDayPartEnabled(dayPart.name)) dragLeaveModule($event, module.name, dayPart.name)"
+                                                        @drop.prevent="if(isDayPartEnabled(dayPart.name)) dropToModule($event, module.name, dayPart.name)"
+                                                        :class="{ 'module-drop-target': isDropTarget(module.name, dayPart.name) }">
+
+                                                        <template x-for="task in getModuleTasks(module.name, dayPart.name)" :key="task.id">
+                                                            <div x-show="!task.hidden"
+                                                                :class="getTaskCardClass(task, activeTaskId, draggedTaskId)"
+                                                                class="task-tile"
+                                                                :draggable="isDayPartEnabled(dayPart.name)"
+                                                                @dragstart="if (isDayPartEnabled(dayPart.name)) dragStart($event, task.id, 'task')"
+                                                                @dragend="if (isDayPartEnabled(dayPart.name)) dragEnd($event)"
+                                                                @dragover.prevent.stop="if (isDayPartEnabled(dayPart.name)) dragOverTask($event, task.id)"
+                                                                @dragleave.prevent.stop="if (isDayPartEnabled(dayPart.name)) dragLeaveTask($event, task.id)"
+                                                                @drop.prevent.stop="if (isDayPartEnabled(dayPart.name)) dropOnTask($event, task.id)"
+                                                                @click="openTaskPopup(task)"
+                                                                @contextmenu.prevent="if (isDayPartEnabled(dayPart.name)) openContextMenu($event, task)"
+                                                                x-init="$nextTick(() => lucide.createIcons())">
+                                                                
+                                                                <div x-show="false" class="task-badge" x-text="task.badge"></div>
+                                                                <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
+                                                                <i :data-lucide="task.icon" class="w-5 h-5"></i>
+                                                                </div>
+                                                                <i x-show="task.mandatory" data-lucide="alert-circle" class="mandatory-badge w-3 h-3 text-white"></i>
+                                                                <span class="task-label" x-text="task.name"></span>
+                                                            </div>
+                                                        </template>
+
+                                                        <div 
+                                                            x-show="isDayPartEnabled(dayPart.name)"
+                                                            class="flex items-center justify-center cursor-pointer mt-1"
+                                                            @click="openAddTaskPopup(module.name, dayPart.name)"
+                                                        >
+                                                            <div class="w-8 h-8 rounded-full bg-blue-100 border border-blue-300 text-blue-600 flex items-center justify-center shadow-sm hover:bg-blue-200 hover:scale-105 transition">
+                                                                <span class="text-xl leading-none font-bold">+</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    
+                                    <div x-show="isDayPartEnabled(dayPart.name)" class="flex justify-start pl-11 mt-4">
+                                        <button @click="openAddGroupPopup(dayPart.name)"
+                                            class="add-task-button !bg-blue-600 !text-white !border-blue-700 hover:!bg-blue-700 add-group-button"
+                                        >
+                                            <i data-lucide="folder-plus" class="w-4 h-4"></i>
+                                            Add Task Group
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div x-show="!hideCloseOfDay"
+                            class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
+                            :class="{'disabled-day-part': !isDayPartEnabled('Close of Day')}">
+
+                            <div class="section-header !py-2 !px-4" @click="toggleDayPart('Close of Day')">
+                                <div class="flex items-center gap-3">
+                                    <div class="bg-white/10 p-1 rounded-md">
+                                        <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-300" :class="isDayPartExpanded('Close of Day') ? 'rotate-180' : 'rotate-0'"></i>
+                                    </div>
+                                    <h3 class="text-sm font-semibold flex items-center gap-2">
+                                        Close of Day
+                                        <span class="text-xs font-normal text-white/80 italic" x-text="'(' + getTimeSlot('Close of Day') + ')'"></span>
+                                    </h3>
+                                </div>
+
+                                <div class="flex items-center gap-3">
+                                    <button @click.stop="openDayPartTimeSlotPopup('Close of Day')"
+                                        class="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition" title="Set Time Slot">
+                                        <i data-lucide="clock" class="w-4 h-4"></i>
+                                    </button>
+                                    
+                                    <label class="toggle-switch" @click.stop>
+                                        <input type="checkbox" x-model="getDayPart('Close of Day').enabled">
+                                        <span class="slider"></span>
+                                    </label>
+                                    
+                                    <button @click.stop="removeDayPart('Close of Day')" 
+                                        class="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition" title="Hide Day Part">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div x-show="isDayPartExpanded('Close of Day')" x-collapse class="p-4 timeline-container bg-white">
+                                <div class="timeline-line"></div>
+
+                                <template x-for="module in getWorkflowModules('Close of Day')" :key="module.name">
+                                    <div class="relative mb-4 module-icon-wrapper" x-show="hasVisibleTasks(module.name, 'Close of Day') || (module.customGroup && isDayPartEnabled('Close of Day'))">
+                                        <div class="absolute left-0 top-2">
+                                            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ring-4 ring-white"
+                                                :class="module.colorClasses">
+                                                <i :data-lucide="module.icon" class="w-5 h-5"></i>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex flex-col gap-2 pl-11">
+                                            <div class="flex items-center gap-4">
+                                                <h4 class="text-sm font-bold text-gray-900" 
+                                                    :contenteditable="module.customGroup && isDayPartEnabled('Close of Day')"
+                                                    @blur="if(module.customGroup && isDayPartEnabled('Close of Day')) updateModuleName(module, $event.target.textContent.trim())"
+                                                    x-text="module.name"></h4>
+
+                                                <div class="flex flex-wrap gap-2 p-1 rounded-lg transition-all min-h-[40px] flex-1"
+                                                    @dragover.prevent="if(isDayPartEnabled('Close of Day')) dragOverModule($event, module.name, 'Close of Day')"
+                                                    @dragenter.prevent="if(isDayPartEnabled('Close of Day')) dragEnterModule($event, module.name, 'Close of Day')"
+                                                    @dragleave.prevent="if(isDayPartEnabled('Close of Day')) dragLeaveModule($event, module.name, 'Close of Day')"
+                                                    @drop.prevent="if(isDayPartEnabled('Close of Day')) dropToModule($event, module.name, 'Close of Day')"
+                                                    :class="{ 'module-drop-target': isDropTarget(module.name, 'Close of Day') }">
+
+                                                    <template x-for="task in getModuleTasks(module.name, 'Close of Day')" :key="task.id">
+                                                        <div x-show="!task.hidden"
+                                                            :class="getTaskCardClass(task, activeTaskId, draggedTaskId)"
+                                                            class="task-tile"
+                                                            :draggable="isDayPartEnabled('Close of Day')"
+                                                            @dragstart="if (isDayPartEnabled('Close of Day')) dragStart($event, task.id, 'task')"
+                                                            @dragend="if (isDayPartEnabled('Close of Day')) dragEnd($event)"
+                                                            @dragover.prevent.stop="if (isDayPartEnabled('Close of Day')) dragOverTask($event, task.id)"
+                                                            @dragleave.prevent.stop="if (isDayPartEnabled('Close of Day')) dragLeaveTask($event, task.id)"
+                                                            @drop.prevent.stop="if (isDayPartEnabled('Close of Day')) dropOnTask($event, task.id)"
+                                                            @click="openTaskPopup(task)"
+                                                            @contextmenu.prevent="if (isDayPartEnabled('Close of Day')) openContextMenu($event, task)"
+                                                            x-init="$nextTick(() => lucide.createIcons())">
+                                                            
+                                                            <div x-show="false" class="task-badge" x-text="task.badge"></div>
+                                                            <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
+                                                                <i :data-lucide="task.icon" class="w-5 h-5"></i>
+                                                            </div>
+                                                            <i x-show="task.mandatory" data-lucide="alert-circle" class="mandatory-badge w-3 h-3 text-white"></i>
+
+                                                            <span class="task-label" x-text="task.name"></span>
+                                                        </div>
+                                                    </template>
+
+                                                    <div 
+                                                        x-show="isDayPartEnabled('Close of Day')"
+                                                        class="flex items-center justify-center cursor-pointer mt-1"
+                                                        @click="openAddTaskPopup(module.name, 'Close of Day')"
+                                                    >
+                                                        <div class="w-8 h-8 rounded-full bg-blue-100 border border-blue-300 text-blue-600 flex items-center justify-center shadow-sm hover:bg-blue-200 hover:scale-105 transition">
+                                                            <span class="text-xl leading-none font-bold">+</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                                
+                                <div x-show="isDayPartEnabled('Close of Day')" class="flex justify-start pl-11 mt-4">
+                                    <button @click="openAddGroupPopup('Close of Day')"
+                                        class="add-task-button !bg-blue-600 !text-white !border-blue-700 hover:!bg-blue-700 add-group-button"
+                                    >
+                                        <i data-lucide="folder-plus" class="w-4 h-4"></i>
+                                        Add Task Group
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+        
+        <div 
+            x-show="sidebarOpen"
+            x-transition:enter="transform transition ease-in-out duration-300 sm:duration-700"
+            x-transition:enter-start="translate-x-full"
+            x-transition:enter-end="translate-x-0"
+            x-transition:leave="transform transition ease-in-out duration-300 sm:duration-700"
+            x-transition:leave-start="translate-x-0"
+            x-transition:leave-end="translate-x-full"
+            @click.away="sidebarOpen = false"
+            class="fixed top-0 right-0 h-full w-80 bg-gray-50 shadow-2xl z-50 overflow-y-auto border-l border-gray-200 pt-14 no-print">
+
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-900 tracking-tight">Task Library</h2>
+                    <button @click="sidebarOpen = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div class="p-3 mb-4 border border-blue-200 bg-blue-50 rounded-xl text-sm text-blue-800">
+                    <div class="flex items-start gap-2">
+                        <i data-lucide="info" class="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5"></i>
+                        <p class="font-medium">Drag any task below into an **enabled** group to add it to the workflow.</p>
+                    </div>
+                </div>
+
+                <div class="relative mb-6">
+                    <i data-lucide="search" class="absolute left-3 top-3 w-4 h-4 text-gray-400"></i>
+                    <input type="text" x-model.debounce.250ms="taskSearchTerm" 
+                        class="block w-full rounded-xl border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm pl-10 p-2.5 bg-white" 
+                        placeholder="Search tasks...">
+                </div>
+
+                <div class="space-y-6">
+                    <template x-for="(tasks, appName) in groupedSidebarTasks" :key="appName">
+                        <div>
+                            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3" x-text="appName"></h3>
+                            <div class="grid grid-cols-3 gap-3">
+                                <template x-for="task in tasks" :key="task.id">
+                                    <div 
+                                        class="task-tile task-tile-sidebar cursor-move p-2 border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow"
+                                        draggable="true"
+                                        @dragstart="dragStart($event, task.id, 'sidebarTask')"
+                                        @dragend="dragEnd($event)"
+                                        x-init="$nextTick(() => lucide.createIcons())"
+                                    >
+                                        <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
+                                            <i :data-lucide="task.icon" class="!w-4 !h-4"></i> 
+                                        </div>
+                                        <i x-show="task.mandatory" data-lucide="alert-circle" class="mandatory-badge w-3 h-3 text-white"></i>
+                                        <span class="task-label !text-[0.6rem] font-semibold text-gray-700 mt-1" x-text="task.name"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="addTaskPopupOpen || selectGroupCreationModePopupOpen || dayPartTimeSlotPopupOpen || addDayPartPopupOpen || dayPartCreationModePopupOpen"
+             class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[200] no-print">
+            
+            <div x-show="selectGroupCreationModePopupOpen" class="bg-white w-[550px] rounded-xl shadow-xl p-6 space-y-5" @click.stop>
+                <h2 class="text-xl font-bold text-gray-800 border-b pb-3">
+                    Add Task Group to <span class="text-blue-600" x-text="addTargetSection"></span>
+                </h2>
+                
+                <p class="text-sm text-gray-600">Select one or more System Modules to add as groups, or create a Custom Group.</p>
+
+                <div class="space-y-4">
+                    <h3 class="text-sm font-semibold text-gray-700">System Modules</h3>
+                    <div class="grid grid-cols-3 gap-3">
+                        <template x-for="module in defaultModules" :key="module.name">
+                            <label 
+                                x-show="!existingModulesInTargetDayPart.includes(module.name)"
+                                class="p-3 border rounded-lg cursor-pointer transition-all flex items-center gap-3"
+                                :class="selectedGroupsToAdd.includes(module.name) ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500' : 'border-gray-200 bg-white hover:border-blue-300'"
+                            >
+                                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm flex-shrink-0"
+                                    :class="module.colorClasses">
+                                    <i :data-lucide="module.icon" class="w-4 h-4"></i>
+                                </div>
+                                <input type="checkbox" :value="module.name" x-model="selectedGroupsToAdd" class="sr-only">
+                                <span class="text-sm font-medium text-gray-700" x-text="module.name"></span>
+                            </label>
+                        </template>
+
+                        <div x-show="existingModulesInTargetDayPart.length > 0" class="col-span-3 text-xs text-gray-400 italic mt-1">
+                            (Modules already added to this day part are hidden)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-3 pt-3 border-t border-gray-200">
+                    <h3 class="text-sm font-semibold text-gray-700">Custom Group</h3>
+                    <div>
+                        <label for="custom-group-name" class="block text-xs font-medium text-gray-700 mb-1">Custom Group Name</label>
+                        <input type="text" id="custom-group-name" x-model="newCustomGroupName" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="e.g., Daily Checklists, Safety Audits">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                    <button @click="selectGroupCreationModePopupOpen=false; selectedGroupsToAdd=[]; newCustomGroupName='';" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-medium">Close</button>
+                    <button @click="saveSelectedGroups()" 
+                        :disabled="selectedGroupsToAdd.length === 0 && !newCustomGroupName.trim()"
+                        class="px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors"
+                        :class="(selectedGroupsToAdd.length > 0 || newCustomGroupName.trim()) ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-400 cursor-not-allowed'">Add Group(s)</button>
+                </div>
+            </div>
+            
+            <div x-show="dayPartCreationModePopupOpen" class="bg-white w-[500px] rounded-xl shadow-xl p-5 space-y-4" @click.stop>
+                <h2 class="text-lg font-semibold text-gray-800 mb-4">How to create the new Day Part?</h2>
+
+                <div class="flex gap-4">
+                    <div @click="dayPartCreationMode = 'scratch'; openAddDayPartDetailsPopup('scratch', null)"
+                        class="flex-1 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-blue-500 hover:shadow-md transition-all text-center">
+                        <i data-lucide="file-plus" class="w-8 h-8 mx-auto text-blue-600 mb-2"></i>
+                        <p class="font-semibold text-gray-800">Build from Scratch</p>
+                        <p class="text-xs text-gray-500 mt-1">Start with an empty section.</p>
+                    </div>
+
+                    <div @click="dayPartCreationMode = 'copy'; openAddDayPartDetailsPopup('copy', 'Start of Day')"
+                        class="flex-1 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-green-500 hover:shadow-md transition-all text-center">
+                        <i data-lucide="copy-plus" class="w-8 h-8 mx-auto text-green-600 mb-2"></i>
+                        <p class="font-semibold text-gray-800">Copy from Existing</p>
+                        <p class="text-xs text-gray-500 mt-1">Duplicate groups/tasks from another part.</p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end mt-4">
+                    <button @click="dayPartCreationModePopupOpen=false;" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-medium">Cancel</button>
+                </div>
+            </div>
+
+            <div x-show="addDayPartPopupOpen" class="bg-white w-[420px] rounded-xl shadow-xl p-5 space-y-4" @click.stop>
+                <h2 class="text-lg font-semibold text-gray-800 mb-2">Add Workflow Day Part</h2>
+                
+                <div>
+                    <label for="day-part-name" class="block text-sm font-medium text-gray-700 mb-1">Day Part Name</label>
+                    <input type="text" id="day-part-name" x-model="newDayPartName" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="e.g., Lunch Prep, Evening Service">
+                </div>
+                
+                <div>
+                    <label for="day-part-time-slot" class="block text-sm font-medium text-gray-700 mb-1">Due By Time</label>
+                    <select id="day-part-time-slot" x-model="newDayPartTimeSlot"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        <option value="" disabled>Select Due By Time</option>
+                        <template x-for="time in timeOptions" :key="time">
+                            <option :value="time" x-text="time"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <div x-show="dayPartCreationMode === 'copy'">
+                    <label for="copy-source-dp" class="block text-sm font-medium text-gray-700 mb-1">Copy Groups/Tasks From Day Part</label>
+                    <select id="copy-source-dp" x-model="copySourceDayPart"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    >
+                        <option value="" disabled>Select a source day part</option>
+                        <template x-for="part in availableDayParts" :key="part">
+                            <option :value="part" x-text="part"></option>
+                        </template>
+                    </select>
+                </div>
+
+                 <div class="flex justify-end gap-3 mt-4">
+                    <button 
+                        @click="addDayPartPopupOpen=false; newDayPartName=''; newDayPartTimeSlot=''; copySourceDayPart=null; dayPartCreationMode='scratch';"
+                        class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-medium"
+                    >
+                        Cancel
+                    </button>
+
+                    <button 
+                        @click="saveNewDayPart()"
+                        :disabled="!newDayPartName.trim() || !newDayPartTimeSlot.trim() || (dayPartCreationMode === 'copy' && !copySourceDayPart)"
+                        class="px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors"
+                        :class="(newDayPartName.trim() && newDayPartTimeSlot.trim() && (dayPartCreationMode === 'scratch' || copySourceDayPart)) ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-400 cursor-not-allowed'"
+                    >
+                        Save
+                    </button>
+                </div>
+            </div>
+
+            <div x-show="dayPartTimeSlotPopupOpen" class="bg-white w-[350px] rounded-xl shadow-xl p-5 space-y-4" @click.stop>
+                <h2 class="text-lg font-semibold text-gray-800 mb-2">Set Due By Time for: <span class="text-blue-600" x-text="targetDayPartForTimeSlot"></span></h2>
+                
+                <div>
+                    <label for="edit-time-slot" class="block text-sm font-medium text-gray-700 mb-1">Due By Time</label>
+                    <select id="edit-time-slot" x-model="tempTimeSlot" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        <option value="" disabled>Select Due Time</option>
+                        <template x-for="time in timeOptions" :key="time">
+                            <option :value="time" x-text="time"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-4">
+                    <button @click="dayPartTimeSlotPopupOpen=false; tempTimeSlot='';" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-medium">Cancel</button>
+                    <button @click="saveDayPartTimeSlot()" 
+                        :disabled="!tempTimeSlot.trim()"
+                        class="px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors"
+                        :class="tempTimeSlot.trim() ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-400 cursor-not-allowed'">Save Time</button>
+                </div>
+            </div>
+
+            <div 
+                x-show="addTaskPopupOpen"
+                class="bg-white w-[420px] rounded-xl shadow-xl p-5 space-y-4" @click.stop
+            >
+                <h2 class="text-lg font-semibold text-gray-800 mb-2">
+                    Add Tasks to <span class="text-blue-600" x-text="addTargetModule"></span>
+                </h2>
+
+                <label class="flex items-center gap-2 mb-2 cursor-pointer">
+                    <input type="checkbox" x-model="selectAllTasks" @change="toggleSelectAllTasks">
+                    <span class="text-sm font-medium">Select All</span>
+                </label>
+
+                <div class="max-h-64 overflow-y-auto border rounded-lg p-3 space-y-3">
+                    <template x-for="task in availableSidebarTasks" :key="task.id">
+                        <label class="flex items-center gap-3 cursor-pointer">
+
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm"
+                                :class="getTaskIconColor(task.id)">
+                                <i :data-lucide="task.icon" class="w-4 h-4 text-white"></i>
+                            </div>
+
+                            <input type="checkbox" 
+                                class="mr-2" 
+                                :value="task.id"
+                                x-model="selectedTasksToAdd">
+
+                            <span class="text-sm font-medium" x-text="task.name"></span>
+                        </label>
+                    </template>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-4">
+                    <button 
+                        @click="addTaskPopupOpen=false"
+                        class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-medium"
+                    >
+                        Cancel
+                    </button>
+
+                    <button 
+                        @click="applyAddedTasks()"
+                        class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium"
+                    >
+                        Apply
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        function workflowApp() 
+        
+        {
+            // --- TIME SLOT GENERATION ---
+            function generateTimeOptions() {
+                const times = [];
+                for (let h = 0; h < 24; h++) {
+                    for (let m = 0; m < 60; m += 30) {
+                        const hour = h % 12 || 12;
+                        const ampm = h < 12 || h === 24 ? 'AM' : 'PM';
+                        const minute = m < 10 ? '0' + m : m;
+                        times.push(`${hour}:${minute} ${ampm}`);
                     }
-                });
+                }
+                return times;
             }
+
+            const timeOptions = generateTimeOptions();
+            // --- END TIME SLOT GENERATION ---
+
+            // --- Simplified Context Menu State (Restored) ---
+            const newContextMenuState = {
+                contextMenuOpen: false,
+                contextMenuTargetTask: null,
+                contextMenuX: 0,
+                contextMenuY: 0,
+            };
+            // --- End Simplified Context Menu State ---
+
+            // --- Default Task Data matching Screenshots ---
+            const allSystemTasks = [
+                // Forecast
+                { id: 'review-forecast', name: 'Review Forecast', app: 'Forecast', category: 'General', enabled: true, complete: false, icon: 'trending-up', mandatory: false },
+                { id: 'actual-sales', name: 'Actual Sales', app: 'Forecast', category: 'General', enabled: true, complete: false, icon: 'line-chart', mandatory: false },
+                // Food Management
+                { id: 'ordering', name: 'Ordering', app: 'Food Management', category: 'General', enabled: true, complete: false, icon: 'shopping-cart', mandatory: true },
+                { id: 'receiving', name: 'Receiving', app: 'Food Management', category: 'General', enabled: true, complete: true, icon: 'truck', mandatory: false },
+                { id: 'transfer', name: 'Transfer', app: 'Food Management', category: 'General', enabled: true, complete: true, icon: 'arrow-right-left', mandatory: false },
+                { id: 'waste', name: 'Waste', app: 'Food Management', category: 'General', enabled: true, complete: true, icon: 'trash-2', mandatory: true },
+                // Labor Management
+                { id: 'schedule', name: 'Schedule', app: 'Labor Management', category: 'General', enabled: true, complete: true, icon: 'calendar-days', mandatory: true },
+                { id: 'pending-employees', name: 'Pending Employees', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'users', mandatory: false },
+                { id: 'violation', name: 'Violation', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'alert-triangle', mandatory: true },
+                { id: 'time-loss', name: 'Time Loss Summary', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'percent', mandatory: false },
+                { id: 'time-off-request', name: 'Time Off Request', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'user-x', mandatory: false },
+                { id: 'availability-request', name: 'Availability Request', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'user-check', mandatory: false },
+                { id: 'swap-shift-approval', name: 'Swap Shift Approval', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'repeat', mandatory: false },
+                // Payroll Management
+                { id: 'punch-exception', name: 'Punch Exceptions', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'fingerprint', mandatory: true },
+                { id: 'punch-review', name: 'Punch Review', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'clipboard-check', mandatory: false },
+                { id: 'approvals', name: 'Approvals', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'check-square', mandatory: false },
+                { id: 'unbalanced-punches', name: 'Unbalanced Punches', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'divide', mandatory: false },
+                { id: 'mismatch-punch', name: 'Mismatch Punch', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'x-circle', mandatory: false },
+                { id: 'misc-pay', name: 'Misc Pay', app: 'Payroll Management', category: 'General', enabled: true, complete: true, icon: 'wallet', mandatory: true },
+                { id: 'approaching-ot', name: 'Approaching OT', app: 'Payroll Management', category: 'General', enabled: true, complete: true, icon: 'clock-3', mandatory: false },
+                { id: 'payroll-summary', name: 'Payroll Summary', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'file-check', mandatory: true },
+                // Zip Inventory
+                { id: 'inventory', name: 'Inventory', app: 'Zip Inventory', category: 'General', enabled: true, complete: true, icon: 'clipboard-list', mandatory: true },
+            ];
+
+            // Helper function to create a unique ID for a task copy
+            function createUniqueTaskCopy(task, newCategory, newApp = null) {
+                return {
+                    ...task,
+                    id: task.id + '-' + Date.now() + Math.floor(Math.random() * 100000), 
+                    app: newApp || task.app, 
+                    category: newCategory, 
+                    complete: false, 
+                    enabled: true,
+                    hidden: false,
+                    mandatory: task.mandatory || false, 
+                };
+            }
+
+            // --- Initial Workflow Tasks (now seeded from allSystemTasks and tagged with Day Part)
+            const initialStartOfDayTasks = [
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'review-forecast'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'actual-sales'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'ordering'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'receiving'), 'Start of Day', 'Food Management'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'waste'), 'Start of Day', 'Food Management'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'schedule'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'pending-employees'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'violation'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'time-loss'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'punch-exception'), 'Start of Day'),
+            ].map(t => ({...t, complete: Math.random() < 0.5})); 
+
+            const initialCloseOfDayTasks = [
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'ordering'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'waste'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'inventory'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'violation'), 'Close of Day', 'Labor Management'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'punch-exception'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'misc-pay'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'payroll-summary'), 'Close of Day'),
+            ].map(t => ({...t, complete: Math.random() < 0.5})); 
+
+            const allDefaultWorkflowTasks = [...initialStartOfDayTasks, ...initialCloseOfDayTasks];
+
+            const predefinedSidebarTasks = allSystemTasks; 
+
+            const randomIcons = ['activity', 'airplay', 'award', 'coffee', 'gift', 'zap', 'shield', 'box', 'rocket', 'cloud', 'hard-hat', 'sun', 'moon', 'calendar-check', 'clipboard-list', 'bar-chart', 'dollar-sign', 'users-round'];
+            const randomColors = ['bg-pink-600', 'bg-indigo-600', 'bg-green-600', 'bg-red-600', 'bg-yellow-600', 'bg-purple-600', 'bg-teal-600'];
+
+            const defaultModuleInfo = {
+                'Forecast': { icon: 'line-chart', colorClasses: 'bg-gradient-to-br from-blue-500 to-blue-600' },
+                'Food Management': { icon: 'shopping-cart', colorClasses: 'bg-gradient-to-br from-purple-500 to-pink-600' },
+                'Labor Management': { icon: 'users-round', colorClasses: 'bg-gradient-to-br from-amber-400 to-orange-500' },
+                'Payroll Management': { icon: 'clock-3', colorClasses: 'bg-gradient-to-br from-indigo-600 to-indigo-700' },
+                'Zip Inventory': { icon: 'file-spreadsheet', colorClasses: 'bg-gradient-to-br from-green-500 to-green-600' },
+                'General': { icon: 'layout-grid', colorClasses: 'bg-gradient-to-br from-gray-500 to-gray-600' }, 
+            };
+            
+            // The single, core workflow template
+            const globalWorkflow = {
+                id: 'wf-global', 
+                name: 'Global Workflow Configuration', 
+                tasks: allDefaultWorkflowTasks, 
+                customModules: [], 
+                // Enhanced Day Parts with enabled and timeSlot properties (Single Start Time)
+                dayParts: {
+                    'Start of Day': { enabled: true, timeSlot: '8:00 AM' },
+                    'Close of Day': { enabled: true, timeSlot: '8:00 PM' }
+                },
+                customDayParts: [], 
+                storeIds: ['S-101'], 
+                lastEdited: new Date().toLocaleDateString(),
+                icon: 'layout-grid', 
+                iconColor: 'bg-blue-600', 
+                isDefault: true, 
+            };
+
+
+            return {
+                // --- Core App State ---
+                currentView: 'summary', 
+                activeTab: 'editor', 
+                activeWorkflow: globalWorkflow, 
+                hideStartOfDay: false,
+                hideCloseOfDay: false,
+                
+                // --- CONTEXT MENU STATE (Restored) ---
+                ...newContextMenuState,
+                // --- END CONTEXT MENU STATE ---
+                
+                // --- Global Workflow State ---
+                workflows: [globalWorkflow], 
+                
+                // --- Editor Screen State ---
+                sidebarOpen: false,
+                draggedTaskId: null,
+                dragSourceType: null,
+                dropTarget: { app: null, category: null, hoverTaskId: null },
+                dayPartExpansion: { 'Start of Day': true, 'Close of Day': true },
+                selectGroupCreationModePopupOpen: false, 
+                selectedGroupsToAdd: [],
+                newCustomGroupName: '',
+                addTargetSection: null, 
+                activeTaskId: null,
+                taskSearchTerm: '',
+                availableSidebarTasks: [],
+                addTaskPopupOpen: false,
+                selectedTasksToAdd: [],
+                selectAllTasks: false,
+                addTargetModule: null,
+                
+                // --- Day Part Management State ---
+                dayPartCreationModePopupOpen: false, 
+                addDayPartPopupOpen: false,
+                newDayPartName: '',
+                newDayPartTimeSlot: '', 
+                dayPartCreationMode: 'blank', 
+                copySourceDayPart: null, 
+                
+                // --- Time Slot State (NEW) ---
+                timeOptions: timeOptions,
+                dayPartTimeSlotPopupOpen: false,
+                targetDayPartForTimeSlot: null,
+                tempTimeSlot: '',
+                
+                // --- Task/Module Data ---
+                predefinedTasks: predefinedSidebarTasks, 
+                defaultModules: [ 
+                    { name: 'Forecast', icon: defaultModuleInfo['Forecast'].icon, colorClasses: defaultModuleInfo['Forecast'].colorClasses },
+                    { name: 'Food Management', icon: defaultModuleInfo['Food Management'].icon, colorClasses: defaultModuleInfo['Food Management'].colorClasses },
+                    { name: 'Labor Management', icon: defaultModuleInfo['Labor Management'].icon, colorClasses: defaultModuleInfo['Labor Management'].colorClasses },
+                    { name: 'Payroll Management', icon: defaultModuleInfo['Payroll Management'].icon, colorClasses: defaultModuleInfo['Payroll Management'].colorClasses },
+                    { name: 'Zip Inventory', icon: defaultModuleInfo['Zip Inventory'].icon, colorClasses: defaultModuleInfo['Zip Inventory'].colorClasses },
+                ],
+                allSystemTasks: allSystemTasks, 
+                
+                // --- Utility Functions ---
+                getRandomIcon() {
+                    return randomIcons[Math.floor(Math.random() * randomIcons.length)];
+                },
+                getRandomColorClass() {
+                    return randomColors[Math.floor(Math.random() * randomColors.length)];
+                },
+
+                createUniqueTaskCopy(task, newCategory, newApp = null) {
+                    return {
+                        ...task,
+                        id: task.id + '-' + Date.now() + Math.floor(Math.random() * 100000), 
+                        app: newApp || task.app, 
+                        category: newCategory, 
+                        complete: false, 
+                        enabled: true,
+                        hidden: false,
+                        mandatory: task.mandatory || false, 
+                    };
+                },
+                
+                // --- Init & Setup ---
+                init() {
+                    this.initCustomModules(this.activeWorkflow);
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                // NEW: Function to get Day Part state object
+                getDayPart(dayPartName) {
+                    if (this.activeWorkflow.dayParts.hasOwnProperty(dayPartName)) {
+                        return this.activeWorkflow.dayParts[dayPartName];
+                    }
+                    const customPart = this.activeWorkflow.customDayParts.find(d => d.name === dayPartName);
+                    if (customPart) return customPart;
+                    
+                    return { enabled: true, timeSlot: 'N/A' }; 
+                },
+
+                isDayPartEnabled(dayPartName) {
+                    return this.getDayPart(dayPartName).enabled === true;
+                },
+                
+                getTimeSlot(dayPartName) {
+                    return this.getDayPart(dayPartName).timeSlot || 'N/A';
+                },
+                
+                // NEW: Time Slot Management
+                openDayPartTimeSlotPopup(dayPartName) {
+                    this.targetDayPartForTimeSlot = dayPartName;
+                    this.tempTimeSlot = this.getTimeSlot(dayPartName) === 'N/A' ? '' : this.getTimeSlot(dayPartName);
+                    this.dayPartTimeSlotPopupOpen = true;
+                },
+
+                saveDayPartTimeSlot() {
+                    const partName = this.targetDayPartForTimeSlot;
+                    const slot = this.tempTimeSlot.trim() || 'N/A';
+
+                    if (this.activeWorkflow.dayParts.hasOwnProperty(partName)) {
+                        this.activeWorkflow.dayParts[partName].timeSlot = slot;
+                    } else {
+                        const customPart = this.activeWorkflow.customDayParts.find(d => d.name === partName);
+                        if (customPart) {
+                            customPart.timeSlot = slot;
+                        }
+                    }
+
+                    this.dayPartTimeSlotPopupOpen = false;
+                    this.tempTimeSlot = '';
+                    this.targetDayPartForTimeSlot = null;
+                },
+
+                // --- Context Menu Functions (Restored) ---
+                openContextMenu(event, task) {
+                    // Only open if the day part is enabled
+                    if (!this.isDayPartEnabled(task.category)) return;
+
+                    event.preventDefault(); 
+                    
+                    this.contextMenuTargetTask = task;
+                    
+                    // Position the menu
+                    this.contextMenuX = event.clientX;
+                    this.contextMenuY = event.clientY;
+                    
+                    this.contextMenuOpen = true;
+                    
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                closeContextMenu() {
+                    this.contextMenuOpen = false;
+                    this.contextMenuTargetTask = null;
+                },
+
+                toggleMandatory(taskId) {
+                    const task = this.tasks.find(t => t.id === taskId);
+                    if (task) {
+                        task.mandatory = !task.mandatory;
+                    }
+                    this.closeContextMenu();
+                },
+                
+                removeTask(taskId) {
+                    const taskToRemove = this.tasks.find(t => t.id === taskId);
+                    if (!taskToRemove) return;
+
+                    if (!confirm(`Are you sure you want to remove the task: ${taskToRemove.name}?`)) {
+                        this.closeContextMenu();
+                        return;
+                    }
+                    
+                    this.activeWorkflow.tasks = this.activeWorkflow.tasks.filter(t => t.id !== taskId);
+
+                    const taskApp = taskToRemove.app;
+                    const taskCategory = taskToRemove.category;
+                    
+                    const isCustom = this.activeWorkflow.customModules.some(m => m.name === taskApp && m.category === taskCategory && m.customGroup);
+                    
+                    if (isCustom && this.getModuleTasks(taskApp, taskCategory).length === 0) {
+                         this.activeWorkflow.customModules = this.activeWorkflow.customModules.filter(m => !(m.name === taskApp && m.category === taskCategory));
+                    }
+
+                    this.closeContextMenu();
+                },
+                // --- End Context Menu Functions ---
+
+                // --- Workflow Summary/Creation Logic ---
+                editWorkflow(id) {
+                    const workflow = this.workflows.find(wf => wf.id === id);
+                    if (!workflow) return;
+
+                    this.activeWorkflow = workflow;
+                    this.currentView = 'detail';
+                    this.activeTab = 'editor'; 
+                    this.sidebarOpen = false;
+
+                    this.initCustomModules(workflow);
+                },
+                
+                initCustomModules(workflow) {
+                     if (!workflow.customModules || workflow.customModules.length === 0) {
+                        const uniqueModules = new Map();
+                        
+                        workflow.tasks.forEach(task => {
+                            const key = task.app + '|' + task.category;
+                            if (!uniqueModules.has(key)) {
+                                const moduleInfo = defaultModuleInfo[task.app] || { 
+                                    icon: this.getRandomIcon(), 
+                                    colorClasses: this.getRandomColorClass() 
+                                };
+                                uniqueModules.set(key, {
+                                    name: task.app,
+                                    icon: moduleInfo.icon,
+                                    colorClasses: moduleInfo.colorClasses,
+                                    category: task.category,
+                                    customGroup: false 
+                                });
+                            }
+                        });
+
+                        workflow.customModules = Array.from(uniqueModules.values());
+                    }
+                },
+                
+                generateModulesFromTasks(tasks, dayPart) {
+                    if (!tasks) return [];
+
+                    const filtered = tasks.filter(t => t.category === dayPart);
+                    if (filtered.length === 0) return [];
+
+                    const apps = [...new Set(filtered.map(t => t.app))];
+
+                    return apps.map(app => ({
+                        name: app,
+                        icon: defaultModuleInfo[app]?.icon || 'folder',
+                        colorClasses: defaultModuleInfo[app]?.colorClasses || 'bg-gray-500',
+                        category: dayPart,
+                        customGroup: false
+                    }));
+                },
+
+                // --- Getters for Active Workflow ---
+                get tasks() { return this.activeWorkflow ? this.activeWorkflow.tasks : []; },
+                get customModules() { return this.activeWorkflow ? this.activeWorkflow.customModules : []; },
+                get customDayParts() { return this.activeWorkflow ? this.activeWorkflow.customDayParts : []; },
+
+                get availableDayParts() {
+                    if (!this.activeWorkflow) return [];
+                    return ['Start of Day', 'Close of Day', ...this.activeWorkflow.customDayParts.map(d => d.name)];
+                },
+
+                get existingModulesInTargetDayPart() {
+                    return this.activeWorkflow ? this.activeWorkflow.customModules.filter(m => m.category === this.addTargetSection).map(m => m.name) : [];
+                },
+                
+                // --- Workflow Day Part Logic ---
+                openAddDayPartPopup() {
+                    this.dayPartCreationModePopupOpen = true;
+                    this.addDayPartPopupOpen = false;
+                    this.newDayPartName = '';
+                    this.newDayPartTimeSlot = '';
+                    this.copySourceDayPart = null;
+                    this.dayPartCreationMode = 'blank';
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                openAddDayPartDetailsPopup(mode, copySourcePart) {
+                    this.dayPartCreationMode = mode;
+                    this.copySourceDayPart = copySourcePart;
+                    this.dayPartCreationModePopupOpen = false;
+                    this.addDayPartPopupOpen = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+
+                saveNewDayPart() {
+                    const name = this.newDayPartName.trim();
+                    const timeSlot = this.newDayPartTimeSlot.trim();
+                    
+                    if (!name || !timeSlot) {
+                        alert("Please enter a Day Part Name and select a Due By Time.");
+                        return;
+                    }
+
+                    const existingDayParts = ['Start of Day', 'Close of Day', ...this.customDayParts.map(d => d.name)];
+                    if (existingDayParts.some(d => d.toLowerCase() === name.toLowerCase())) {
+                        alert(`A Day Part named "${name}" already exists. Please choose a different name.`);
+                        return;
+                    }
+                    
+                    this.activeWorkflow.customDayParts.push({ 
+                        name: name,
+                        enabled: true,
+                        timeSlot: timeSlot
+                    });
+
+                    // LOGIC FOR COPYING
+                    if (this.dayPartCreationMode === 'copy' && this.copySourceDayPart) {
+                        const sourcePartName = this.copySourceDayPart;
+
+                        // 1. Copy Modules/Groups
+                        const sourceModules = this.activeWorkflow.customModules.filter(m => m.category === sourcePartName);
+                        sourceModules.forEach(module => {
+                            const newModule = JSON.parse(JSON.stringify(module));
+                            newModule.category = name; 
+                            this.activeWorkflow.customModules.push(newModule);
+                        });
+
+                        // 2. Copy Tasks
+                        const sourceTasks = this.activeWorkflow.tasks.filter(t => t.category === sourcePartName);
+                        sourceTasks.forEach(task => {
+                            const newTask = JSON.parse(JSON.stringify(task));
+                            newTask.id = task.id + '-' + Date.now() + Math.floor(Math.random() * 1000); 
+                            newTask.category = name; 
+                            newTask.complete = false;
+                            newTask.mandatory = task.mandatory || false; 
+                            this.activeWorkflow.tasks.push(newTask);
+                        });
+                    }
+
+                    this.dayPartExpansion[name] = true;
+                    this.addDayPartPopupOpen = false;
+                    this.newDayPartName = '';
+                    this.newDayPartTimeSlot = '';
+                    this.copySourceDayPart = null;
+                    this.dayPartCreationMode = 'blank';
+                },
+                
+                removeDayPart(dayPartName) {
+                    if (!confirm(`Are you sure you want to remove all tasks and groups associated with "${dayPartName}"?`)) {
+                        return;
+                    }
+
+                    if (dayPartName === "Start of Day") {
+                        this.hideStartOfDay = true;
+                    } else if (dayPartName === "Close of Day") {
+                        this.hideCloseOfDay = true;
+                    } else {
+                        // Custom Day Part
+                        this.activeWorkflow.customDayParts =
+                            this.activeWorkflow.customDayParts.filter(dp => dp.name !== dayPartName);
+                    }
+                    
+                    // Remove all associated tasks and modules regardless of if it's a default or custom part
+                    this.activeWorkflow.tasks = this.activeWorkflow.tasks.filter(
+                        t => t.category !== dayPartName
+                    );
+                    
+                    this.activeWorkflow.customModules = this.activeWorkflow.customModules.filter(
+                        m => m.category !== dayPartName
+                    );
+                },
+
+                // --- Task Logic (Safely handle property access) ---
+                get groupedSidebarTasks() {
+                    const groups = {};
+                    this.predefinedTasks.forEach(t => {
+                        if (!t.app) return;
+                        if (t.name.toLowerCase().includes(this.taskSearchTerm.toLowerCase())) {
+                            const appName = t.app.split(' ')[0]; 
+                            if (!groups[appName]) groups[appName] = [];
+                            groups[appName].push(t);
+                        }
+                    });
+                    return groups;
+                },
+                
+                getTaskIconColor(taskId) {
+                    const task = this.predefinedTasks.find(t => t.id === taskId.split('-')[0]);
+                    
+                    if (task) {
+                         const app = task.app;
+                         if (app === 'Forecast') return 'bg-blue-100 text-blue-600';
+                         if (app === 'Food Management') return 'bg-purple-100 text-purple-600';
+                         if (app === 'Labor Management') return 'bg-amber-100 text-amber-600';
+                         if (app === 'Payroll Management') return 'bg-indigo-100 text-indigo-600';
+                         if (app === 'Zip Inventory') return 'bg-green-100 text-green-600';
+                         return 'bg-gray-100 text-gray-600';
+                    }
+                    return 'bg-gray-100 text-gray-600';
+                },
+                
+                isDayPartExpanded(dayPartName) { return this.dayPartExpansion[dayPartName] === true; },
+                toggleDayPart(dayPartName) { this.dayPartExpansion[dayPartName] = !this.dayPartExpansion[dayPartName]; },
+
+
+                getWorkflowModules(category) {
+                    if (!this.activeWorkflow) return [];
+
+                    let allModules = this.activeWorkflow.customModules.filter(m => m.category === category && m.customGroup === true);
+
+                    const modulesFromTasks = this.generateModulesFromTasks(this.activeWorkflow.tasks, category);
+                    
+                    const systemModules = [...this.defaultModules];
+                    
+                    systemModules.forEach(m => {
+                        const hasTaskModule = modulesFromTasks.some(tm => tm.name === m.name);
+                        const isAlreadyInCustomGroups = allModules.some(cm => cm.name === m.name);
+                        
+                        if (hasTaskModule && !isAlreadyInCustomGroups) {
+                            allModules.push({ ...m, category: category, customGroup: false });
+                        } 
+                    });
+
+                    const uniqueNames = new Set();
+                    allModules = allModules.reverse().filter(m => {
+                        if (uniqueNames.has(m.name)) return false;
+                        uniqueNames.add(m.name);
+                        return true;
+                    }).reverse();
+
+                    return allModules;
+                },
+
+                getModuleTasks(moduleName, dayPart) {
+                    if (!this.activeWorkflow) return [];
+                    return this.tasks.filter(t => t.category === dayPart && t.app === moduleName);
+                },
+
+                hasVisibleTasks(appName, category) {
+                    return this.getModuleTasks(appName, category).length > 0;
+                },
+                
+                // --- Module Editing ---
+                updateModuleName(module, newName) {
+                    newName = newName.trim();
+                    if (!newName) return;
+                    
+                    const oldName = module.name;
+
+                    this.activeWorkflow.tasks.filter(t => t.app === oldName && t.category === module.category)
+                        .forEach(t => t.app = newName);
+
+                    module.name = newName;
+                },
+                
+                // --- Drag & Drop Logic ---
+                dragStart(evt, id, type) {
+                    const taskCategory = (type === 'task') ? this.tasks.find(t => t.id === id)?.category : 
+                                         (type === 'sidebarTask') ? null : null;
+                    
+                    if (taskCategory && !this.isDayPartEnabled(taskCategory)) return;
+                    
+                    this.dragSourceType = type;
+                    this.draggedTaskId = id;
+                    if (type === 'task') { evt.dataTransfer.setData("text/task-id", id); }
+                    if (type === 'sidebarTask') { evt.dataTransfer.setData("text/sidebar-task-id", id); }
+                    evt.dataTransfer.effectAllowed = "move";
+                    evt.currentTarget.classList.add('task-dragging');
+                    this.sidebarOpen = false;
+                    this.closeContextMenu(); 
+                },
+
+                dragEnd(evt) {
+                    this.draggedTaskId = null;
+                    this.dragSourceType = null;
+                    this.dropTarget = { app: null, category: null, hoverTaskId: null };
+                    document.querySelectorAll('.task-dragging').forEach(el => el.classList.remove('task-dragging'));
+                    document.querySelectorAll('.task-drop-hover').forEach(el => el.classList.remove('task-drop-hover'));
+                },
+
+                dragOverModule(evt, app, category) {
+                    if (!this.draggedTaskId || !this.isDayPartEnabled(category)) return;
+                    evt.preventDefault();
+                    this.dropTarget = { app: app, category: category, hoverTaskId: null };
+                },
+
+                dragEnterModule(evt, app, category) {
+                    if (!this.draggedTaskId || !this.isDayPartEnabled(category)) return;
+                    this.dropTarget = { app, category, hoverTaskId: null };
+                    evt.preventDefault();
+                },
+
+                dragLeaveModule(evt) {
+                    if (!evt.currentTarget.contains(evt.relatedTarget)) {
+                        this.dropTarget = { app: null, category: null, hoverTaskId: null };
+                    }
+                },
+
+                dragOverTask(evt, taskId) {
+                    const task = this.tasks.find(t => t.id === taskId);
+                    if (!this.draggedTaskId || !task || !this.isDayPartEnabled(task.category)) return;
+                    
+                    const app = task.app;
+                    const category = task.category;
+                    if (this.dropTarget.hoverTaskId !== taskId) {
+                        this.dropTarget = { app, category, hoverTaskId: taskId };
+                        document.querySelectorAll('.task-drop-hover').forEach(el => el.classList.remove('task-drop-hover'));
+                        evt.currentTarget.classList.add('task-drop-hover');
+                    }
+                    evt.preventDefault();
+                    evt.dataTransfer.dropEffect = "move";
+                },
+                
+                dropToModule(evt, app, category) {
+                    if (!this.isDayPartEnabled(category)) return; 
+                    evt.preventDefault();
+                    const draggedId = this.draggedTaskId;
+                    if (!draggedId) return;
+
+                    if (this.dragSourceType === 'sidebarTask') {
+                        const sidebarTask = this.predefinedTasks.find(t => t.id === draggedId);
+                        if (!sidebarTask) return;
+                        this.activeWorkflow.tasks.push(this.createUniqueTaskCopy(sidebarTask, category, app));
+                        this.dragEnd();
+                        return;
+                    }
+
+                    const index = this.tasks.findIndex(t => t.id === draggedId);
+                    if (index === -1) return;
+                    this.activeWorkflow.tasks[index].app = app;
+                    this.activeWorkflow.tasks[index].category = category;
+                    const [moved] = this.activeWorkflow.tasks.splice(index, 1);
+                    this.activeWorkflow.tasks.push(moved); 
+                    this.dragEnd();
+                },
+
+                dropOnTask(evt, targetTaskId) {
+                    const targetTask = this.tasks.find(t => t.id === targetTaskId);
+                    if (!targetTask || !this.isDayPartEnabled(targetTask.category)) return; 
+                    evt.preventDefault();
+                    const draggedId = this.draggedTaskId;
+                    if (!draggedId || draggedId === targetTaskId) return;
+                    const draggedIndex = this.tasks.findIndex(t => t.id === draggedId);
+                    const targetIndex = this.tasks.findIndex(t => t.id === targetTaskId);
+                    
+                    if (this.dragSourceType === 'sidebarTask') {
+                        const sidebarTask = this.predefinedTasks.find(t => t.id === draggedId);
+                        if (!sidebarTask) return;
+                        const newTask = this.createUniqueTaskCopy(sidebarTask, targetTask.category, targetTask.app);
+                        this.activeWorkflow.tasks.splice(targetIndex, 0, newTask);
+                        this.dragEnd();
+                        return;
+                    }
+
+                    if (draggedIndex === -1 || targetIndex === -1) return;
+                    const draggedTask = this.tasks[draggedIndex];
+                    draggedTask.app = targetTask.app;
+                    draggedTask.category = targetTask.category;
+                    const [moved] = this.activeWorkflow.tasks.splice(draggedIndex, 1);
+                    let insertIndex = targetIndex;
+                    if (draggedIndex < targetIndex) insertIndex = targetIndex - 1;
+                    this.activeWorkflow.tasks.splice(insertIndex, 0, moved);
+                    this.dragEnd();
+                },
+
+                isDropTarget(app, category) {
+                    return (
+                        this.draggedTaskId &&
+                        this.dropTarget.app === app &&
+                        this.dropTarget.category === category &&
+                        this.dropTarget.hoverTaskId === null &&
+                        this.isDayPartEnabled(category)
+                    );
+                },
+
+                getTaskCardClass(task, activeId, draggedId) {
+                    return {
+                        'task-tile': true,
+                        'pending': !task.complete,
+                        'complete': !!task.complete,
+                        'task-dragging': draggedId === task.id,
+                        'mandatory-card': !!task.mandatory, 
+                    };
+                },
+                
+                // --- Add Group Logic ---
+                openAddGroupPopup(section) {
+                    if (!this.isDayPartEnabled(section)) return; 
+                    this.addTargetSection = section; 
+                    this.selectedGroupsToAdd = []; 
+                    this.newCustomGroupName = ''; 
+                    this.selectGroupCreationModePopupOpen = true; 
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                saveSelectedGroups() {
+                    const section = this.addTargetSection;
+                    if (!this.isDayPartEnabled(section)) return;
+                    
+                    if (this.selectedGroupsToAdd.length === 0 && !this.newCustomGroupName.trim()) {
+                        alert('Please select at least one module or provide a name for a custom group.');
+                        return;
+                    }
+
+                    const existingGroupNames = this.activeWorkflow.customModules
+                        .filter(m => m.category === section)
+                        .map(m => m.name.toLowerCase());
+
+                    // --- 1. Add System Modules and their tasks ---
+                    this.selectedGroupsToAdd.forEach(moduleName => {
+                        if (!existingGroupNames.includes(moduleName.toLowerCase())) {
+                            const moduleInfo = this.defaultModules.find(m => m.name === moduleName);
+                            if (moduleInfo) {
+                                // A. Add the Module/Group definition
+                                this.activeWorkflow.customModules.push({
+                                    name: moduleName,
+                                    icon: moduleInfo.icon,
+                                    colorClasses: moduleInfo.colorClasses, 
+                                    category: section,
+                                    customGroup: false, 
+                                });
+
+                                // B. Find and copy relevant system tasks to the workflow
+                                const tasksToCopy = this.allSystemTasks.filter(t => t.app === moduleName);
+                                tasksToCopy.forEach(task => {
+                                    this.activeWorkflow.tasks.push(this.createUniqueTaskCopy(task, section));
+                                });
+                            }
+                        } 
+                    });
+
+                    // --- 2. Add Custom Group ---
+                    const customName = this.newCustomGroupName.trim();
+                    if (customName) {
+                        if (!existingGroupNames.includes(customName.toLowerCase())) {
+                            this.activeWorkflow.customModules.push({
+                                name: customName,
+                                icon: this.getRandomIcon(), 
+                                colorClasses: this.getRandomColorClass(), 
+                                category: section,
+                                customGroup: true,
+                            });
+                        } else {
+                            alert(`A group named "${customName}" already exists in ${section}. Skipping custom group.`);
+                        }
+                    }
+
+                    this.selectGroupCreationModePopupOpen = false;
+                    this.selectedGroupsToAdd = [];
+                    this.newCustomGroupName = '';
+                    this.addTargetSection = null;
+                },
+                
+                // --- Add Task Logic ---
+                openAddTaskPopup(module, section) {
+                    if (!this.isDayPartEnabled(section)) return; 
+                    
+                    this.addTargetModule = module;
+                    this.addTargetSection = section;
+                    this.selectedTasksToAdd = [];
+                    this.selectAllTasks = false;
+                    
+                    const tasksInModuleBaseIds = this.getModuleTasks(module, section).map(t => t.id.split('-')[0]); 
+                    this.availableSidebarTasks = this.predefinedTasks.filter(t => !tasksInModuleBaseIds.includes(t.id));
+
+                    this.addTaskPopupOpen = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                toggleSelectAllTasks() {
+                    if (this.selectAllTasks) {
+                        this.selectedTasksToAdd = this.availableSidebarTasks.map(t => t.id);
+                    } else {
+                        this.selectedTasksToAdd = [];
+                    }
+                },
+
+                applyAddedTasks() {
+                    if (!this.addTargetModule || !this.addTargetSection || !this.isDayPartEnabled(this.addTargetSection)) return; 
+                    
+                    this.selectedTasksToAdd.forEach(taskId => {
+                        const sourceTask = this.predefinedTasks.find(t => t.id === taskId);
+
+                        if (sourceTask) {
+                            this.activeWorkflow.tasks.push(
+                                this.createUniqueTaskCopy(sourceTask, this.addTargetSection, this.addTargetModule)
+                            );
+                        }
+                    });
+
+                    this.addTaskPopupOpen = false;
+                    this.selectedTasksToAdd = [];
+                    this.selectAllTasks = false;
+                },
+                
+                openTaskPopup(task) {
+                    alert(`Details for Task: ${task.name}\n\nTask ID: ${task.id}\nApp/Group: ${task.app}\nSection: ${task.category}\nMandatory: ${task.mandatory ? 'Yes' : 'No'}\n\nThis would normally open a detailed popup.`);
+                },
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
         });
     </script>
 </body>
